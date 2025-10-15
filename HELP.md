@@ -43,7 +43,7 @@ rules:
     - 'DOMAIN,nicecloud.io,DIRECT'
     - 'MATCH,耐思云'
 
-将proxies中的数据整理成下面的形式：
+将proxies中的数据整理成下面的形式，保存为.config文件：
 {
     "server": "hk17.nicenode.top",
     "server_port": 20087,
@@ -55,6 +55,13 @@ rules:
 
 然后通过ss-local启动代理即可
 
+```
+
+linux服务器配置如下：
+```
+cpu：无所谓，1核也能跑
+内存：无所谓，内存不够的话，用磁盘做交换区
+磁盘：60G
 ```
 
 
