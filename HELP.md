@@ -9,6 +9,52 @@
 ```
 spring.datasource.primary.jdbc-url表示主库
 spring.datasource.primary.jdbc-url表示扩容库
+proxy.host表示代理ip
+proxy.port表示代理端口
+（当服务器ip被拉黑之后，可以开启代理）
+```
+
+linux服务器使用网络代理的便宜方法如下：
+```
+访问梯子的订阅链接，链接返回的内容如下所示：
+mixed-port: 7890
+allow-lan: true
+bind-address: '*'
+mode: rule
+log-level: info
+external-controller: '127.0.0.1:9090'
+dns:
+    enable: true
+    ipv6: false
+    default-nameserver: [223.5.5.5, 119.29.29.29]
+    enhanced-mode: fake-ip
+    fake-ip-range: 198.18.0.1/16
+    use-hosts: true
+    nameserver: ['https://doh.pub/dns-query', 'https://dns.alidns.com/dns-query']
+    fallback: ['https://doh.dns.sb/dns-query', 'https://dns.cloudflare.com/dns-query', 'https://dns.twnic.tw/dns-query', 'tls://8.8.4.4:853']
+    fallback-filter: { geoip: true, ipcidr: [240.0.0.0/4, 0.0.0.0/32] }
+proxies:
+    - { name: '🇭🇰 HK04', type: ss, server: hk04.nicenode.top, port: 20014, cipher: chacha20-ietf-poly1305, password: ae02f134-efc4, udp: true }
+    - { name: '🇸🇬 VIP SG05', type: ss, server: vipsg05.nicenode.top, port: 20255, cipher: chacha20-ietf-poly1305, password: ae02f134-efc4, udp: true }
+proxy-groups:
+    - { name: 耐思云, type: select, proxies: ['🇭🇰 HK08', '🇭🇰 HK09', '🇭🇰 HK10'] }
+    - { name: 高级节点, type: select, proxies: ['🇺🇸 VIP US01'] }
+rules:
+    - 'DOMAIN,nicecloud.io,DIRECT'
+    - 'MATCH,耐思云'
+
+将proxies中的数据整理成下面的形式：
+{
+    "server": "hk17.nicenode.top",
+    "server_port": 20087,
+    "password": "ae02f134-efc4",
+    "method": "chacha20-ietf-poly1305",
+    "local_port": 1080,
+    "timeout": 300
+}
+
+然后通过ss-local启动代理即可
+
 ```
 
 
