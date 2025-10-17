@@ -84,6 +84,9 @@ services:
       # 文件上传目录
       FILE_UPLOAD_TEMP_DIR: /app/tmp/
       FILE_UPLOAD_STORAGE_DIR: /app/file/
+
+      # 日记目录
+      LOG_FILE_PATH: /app/logs/
       
       # 双数据库模式
       DATABASE_MODE: dual
@@ -104,6 +107,7 @@ services:
     volumes:
       - ./app/tmp:/app/tmp
       - ./app/file:/app/file
+      - ./app/logs:/app/logs
     depends_on:
       mariadb-primary:
         condition: service_healthy

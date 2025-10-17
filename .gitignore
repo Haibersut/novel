@@ -3,3 +3,4 @@ novel/target
 
 novel/.vscode
 novel/.mvn
+.vscode/settings.json

@@ -34,15 +34,21 @@ public class ChapterSyncService {
     @Autowired
     private ChapterRepository chapterRepository;
 
-    @Scheduled(fixedDelay = 60_000)
+    @Scheduled(fixedDelay = 60_000, initialDelay = 120_000)
     public void retryUnSyncedChapters() {
-        // 如果未配置扩展数据库，直接返回
+        // 如果未配置扩展数据库,直接返回
         if (chapterScalingUpOneRepository == null) {
             return;
         }
         
         try {
-            boolean runScalingUp = Boolean.parseBoolean(dictionaryRepository.findDictionaryByKeyFieldAndIsDeletedFalse("RunScalingUp").getValueField());
+            var dictionary = dictionaryRepository.findDictionaryByKeyFieldAndIsDeletedFalse("RunScalingUp");
+            if (dictionary == null) {
+                log.debug("RunScalingUp 配置项不存在,跳过同步任务");
+                return;
+            }
+            
+            boolean runScalingUp = Boolean.parseBoolean(dictionary.getValueField());
             if (!runScalingUp) {
                 log.info("已经关闭同步");
                 return;
@@ -64,45 +70,97 @@ public class ChapterSyncService {
         }
     }
 
+    /**
+     * 处理单个章节的同步
+     */
     public void processSingleChapterWithoutTransaction(ChapterSync cs) {
         // 如果未配置扩展数据库，直接返回
         if (chapterScalingUpOneRepository == null) {
+            log.debug("从库未配置，跳过章节同步");
             return;
         }
         
+        if (cs == null || cs.getChapterId() == null) {
+            log.warn("ChapterSync 对象或 chapterId 为 null，跳过处理");
+            return;
+        }
+        
+        Long chapterId = cs.getChapterId();
+        boolean scalingUpSaved = false;
+        
         try {
-            Chapter chapter = chapterRepository.findById(cs.getChapterId()).orElse(null);
+            Chapter chapter = chapterRepository.findById(chapterId).orElse(null);
             if (chapter == null) {
-                log.warn("chapterId={} 已不存在，跳过", cs.getChapterId());
+                log.warn("chapterId={} 已不存在，跳过", chapterId);
+                return;
+            }
+            
+            if (!chapterId.equals(chapter.getId())) {
+                log.error("章节ID不匹配，expected={}, actual={}", chapterId, chapter.getId());
                 return;
             }
 
-            // 方法1：使用 try-catch 包装保存操作
+            // 保存到从数据库（ScalingUp）
             try {
                 ChapterScalingUpOne scalingUpOne = new ChapterScalingUpOne(chapter);
+                if (scalingUpOne.getId() == null || !scalingUpOne.getId().equals(chapterId)) {
+                    log.error("转换后的章节ID不匹配，expected={}, actual={}", chapterId, scalingUpOne.getId());
+                    throw new IllegalStateException("章节转换失败");
+                }
+                
                 chapterScalingUpOneRepository.save(scalingUpOne);
-                log.info("保存到 scalingUp 库成功，chapterId={}", chapter.getId());
+                scalingUpSaved = true;  // 标记成功
+                log.info("保存到 scalingUp 库成功，chapterId={}", chapterId);
             } catch (Exception e) {
-                log.warn("保存到 scalingUp 库失败，尝试检查记录状态，chapterId={}", chapter.getId());
+                log.warn("保存到 scalingUp 库失败，检查是否已存在，chapterId={}", chapterId);
                 // 检查记录是否已存在
-                if (!chapterScalingUpOneRepository.existsById(chapter.getId())) {
-                    throw e;
+                if (chapterScalingUpOneRepository.existsById(chapterId)) {
+                    scalingUpSaved = true;
+                    log.info("scalingUp 库中已存在该章节，chapterId={}", chapterId);
+                } else {
+                    throw new IllegalStateException("从库保存失败且记录不存在", e);
                 }
             }
 
             // 主库章节内容清空
-            chapter.setContent("");
-            chapterRepository.save(chapter);
+            try {
+                chapter.setContent("");
+                chapterRepository.save(chapter);
+                log.info("主库章节内容已清空，chapterId={}", chapterId);
+            } catch (Exception e) {
+                log.error("主库更新失败，需要回滚从库数据，chapterId={}", chapterId, e);
+                if (scalingUpSaved) {
+                    rollbackScalingUpData(chapterId);
+                }
+                throw new IllegalStateException("主库更新失败", e);
+            }
 
             // 标记同步成功
-            cs.setSynced(true);
-            chapterSyncRepository.save(cs);
-
-            log.info("章节同步成功，chapterId={}", cs.getChapterId());
+            try {
+                cs.setSynced(true);
+                chapterSyncRepository.save(cs);
+                log.info("章节同步完成，chapterId={}", chapterId);
+            } catch (Exception e) {
+                log.error("更新同步状态失败，chapterId={}", chapterId, e);
+                throw new IllegalStateException("同步状态更新失败", e);
+            }
 
         } catch (Exception e) {
-            log.error("处理章节失败，进行补偿，chapterId={}", cs.getChapterId(), e);
-            compensateChapterSync(cs.getChapterId());
+            log.error("处理章节失败，chapterId={}，错误: {}", chapterId, e.getMessage(), e);
+            compensateChapterSync(chapterId);
+        }
+    }
+
+    /**
+     * 回滚从库数据（当主库操作失败时）
+     */
+    private void rollbackScalingUpData(Long chapterId) {
+        try {
+            log.warn("开始回滚从库数据，chapterId={}", chapterId);
+            chapterScalingUpOneRepository.deleteById(chapterId);
+            log.info("从库数据回滚成功，chapterId={}", chapterId);
+        } catch (Exception rollbackEx) {
+            log.error("从库数据回滚失败，chapterId={}", chapterId, rollbackEx);
         }
     }
 

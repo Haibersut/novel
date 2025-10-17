@@ -1,6 +1,5 @@
 package com.wtl.novel.filter;
 
-import com.wtl.novel.Service.ChapterService;
 import com.wtl.novel.Service.CredentialService;
 import com.wtl.novel.Service.RequestLogService;
 import com.wtl.novel.entity.Credential;
@@ -26,9 +25,6 @@ public class RequestFilter implements Filter {
 
     @Autowired
     private RequestLogService requestLogService;
-
-    @Autowired
-    private ChapterService chapterService;
 
     @Override
     public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain) {
@@ -108,7 +104,6 @@ public class RequestFilter implements Filter {
         }
 
         String remoteAddr = httpRequest.getRemoteAddr();
-        log.info("Actuator访问 - URI: {}, RemoteAddr: {}", requestURI, remoteAddr);
         
         if (remoteAddr != null && (remoteAddr.equals("127.0.0.1") ||
                 remoteAddr.equals("0:0:0:0:0:0:0:1") ||

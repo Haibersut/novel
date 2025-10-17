@@ -18,6 +18,8 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -27,6 +29,7 @@ import java.util.stream.Stream;
 
 @Service
 public class NovelService {
+    private static final Logger log = LoggerFactory.getLogger(NovelService.class);
     @Autowired
     private NovelRepository novelRepository;
     @Autowired(required = false)
@@ -71,6 +74,7 @@ public class NovelService {
     private DictionaryRepository dictionaryRepository;
     @Autowired
     private UserRepository userRepository;
+
     public int incrementFontNumberById(Long id, Long increment) {
         return novelRepository.incrementFontNumberById(id, increment);
     }
@@ -87,43 +91,50 @@ public class NovelService {
         return new PageImpl<>(novelRepository.findAllById(novelIdList), byId.getPageable(), byId.getTotalElements());
     }
 
-    public List<Tag> getTagsByNovelId( Long novelId) {
+    public List<Tag> getTagsByNovelId(Long novelId) {
         List<NovelTag> byNovelId = novelTagRepository.findByNovelId(novelId);
         return tagRepository.findByIdIn(byNovelId.stream().map(NovelTag::getTagId).toList());
     }
 
     // 分页查询小说
-//    public Page<Novel> getNovelsWithPagination(Long tagId, int page, int size) {
-//        Pageable pageable = PageRequest.of(page, size);
-//        if (tagId == 0) {
-//            return novelRepository.findAllByIsDeletedFalseOrderByUpDesc(pageable);
-//        } else if (tagId == 4) {
-//            List<Long> tags = new ArrayList<>();
-//            tags.add(1L);
-//            List<Long> novelIdList = novelTagRepository.findDistinctNovelIdByTagIdNotIn(tags);
-//            return novelRepository.findByIdInAndIsDeletedFalseOrderByUpDesc(novelIdList, pageable);
-//        } else {
-//            List<NovelTag> byTagId = novelTagRepository.findByTagId(tagId);
-//            List<Long> novelIdList = byTagId.stream().map(NovelTag::getNovelId).toList();
-//            return novelRepository.findByIdInAndIsDeletedFalseOrderByUpDesc(novelIdList, pageable);
-//        }
-//    }
+    // public Page<Novel> getNovelsWithPagination(Long tagId, int page, int size) {
+    // Pageable pageable = PageRequest.of(page, size);
+    // if (tagId == 0) {
+    // return novelRepository.findAllByIsDeletedFalseOrderByUpDesc(pageable);
+    // } else if (tagId == 4) {
+    // List<Long> tags = new ArrayList<>();
+    // tags.add(1L);
+    // List<Long> novelIdList =
+    // novelTagRepository.findDistinctNovelIdByTagIdNotIn(tags);
+    // return novelRepository.findByIdInAndIsDeletedFalseOrderByUpDesc(novelIdList,
+    // pageable);
+    // } else {
+    // List<NovelTag> byTagId = novelTagRepository.findByTagId(tagId);
+    // List<Long> novelIdList = byTagId.stream().map(NovelTag::getNovelId).toList();
+    // return novelRepository.findByIdInAndIsDeletedFalseOrderByUpDesc(novelIdList,
+    // pageable);
+    // }
+    // }
 
-//    public Page<Novel> findByTitleContainingOrTrueNameContaining(String keyword,Long userId) {
-//        Pageable pageable = PageRequest.of(0, 10);
-//        Page<Novel> novels = novelRepository.findByTitleContainingAndIsDeletedFalseOrTrueNameContainingAndIsDeletedFalseOrderByUpDesc(keyword, keyword, pageable);
-//        List<Novel> novelsContent = novels.getContent();
-//        List<Long> novelIds = novelsContent.stream().map(Novel::getId).toList();
-//        List<ReadingRecord> readingRecords = readingRecordService.getReadingRecordsByBookIds(userId, novelIds);
-//        List<Favorite> favorites = favoriteRepository.findAllByUserId(userId);
-//        return novels;
-//    }
+    // public Page<Novel> findByTitleContainingOrTrueNameContaining(String
+    // keyword,Long userId) {
+    // Pageable pageable = PageRequest.of(0, 10);
+    // Page<Novel> novels =
+    // novelRepository.findByTitleContainingAndIsDeletedFalseOrTrueNameContainingAndIsDeletedFalseOrderByUpDesc(keyword,
+    // keyword, pageable);
+    // List<Novel> novelsContent = novels.getContent();
+    // List<Long> novelIds = novelsContent.stream().map(Novel::getId).toList();
+    // List<ReadingRecord> readingRecords =
+    // readingRecordService.getReadingRecordsByBookIds(userId, novelIds);
+    // List<Favorite> favorites = favoriteRepository.findAllByUserId(userId);
+    // return novels;
+    // }
 
     public Page<NovelWithStatusDTO> findByTitleContainingOrTrueNameContaining(String keyword, Long userId) {
         Pageable pageable = PageRequest.of(0, 10);
-        Page<Novel> novels = novelRepository.findByTitleContainingAndIsDeletedFalseOrTrueNameContainingAndIsDeletedFalseOrderByUpDesc(
-                keyword, keyword, pageable
-        );
+        Page<Novel> novels = novelRepository
+                .findByTitleContainingAndIsDeletedFalseOrTrueNameContainingAndIsDeletedFalseOrderByUpDesc(
+                        keyword, keyword, pageable);
 
         List<Novel> novelsContent = novels.getContent();
         List<Long> novelIds = novelsContent.stream().map(Novel::getId).toList();
@@ -144,8 +155,7 @@ public class NovelService {
         Map<Long, List<Long>> novelTagMap = novelTags.stream()
                 .collect(Collectors.groupingBy(
                         NovelTag::getNovelId,
-                        Collectors.mapping(NovelTag::getTagId, Collectors.toList())
-                ));
+                        Collectors.mapping(NovelTag::getTagId, Collectors.toList())));
 
         // 过滤掉包含用户屏蔽标签的小说
         List<Novel> filteredNovels = novelsContent.stream()
@@ -200,16 +210,17 @@ public class NovelService {
             if (credential == null || credential.getUser() == null) {
                 return new NovelCTO(byIdAndIsDeletedFalse, null, null);
             }
-            ReadingRecord byUserIdAndNovelId = readingRecordRepository.findByUserIdAndNovelId(credential.getUser().getId(), id);
+            ReadingRecord byUserIdAndNovelId = readingRecordRepository
+                    .findByUserIdAndNovelId(credential.getUser().getId(), id);
             String name = favoriteService.getFavoriteGroupNameByObjectId(credential.getUser().getId(), id);
-            NovelCTO novelCTO = new NovelCTO(byIdAndIsDeletedFalse, byUserIdAndNovelId.getLastChapter(), byUserIdAndNovelId.getLastChapterId());
+            NovelCTO novelCTO = new NovelCTO(byIdAndIsDeletedFalse, byUserIdAndNovelId.getLastChapter(),
+                    byUserIdAndNovelId.getLastChapterId());
             novelCTO.setFavoriteGroup(name);
             return novelCTO;
         } catch (Exception e) {
             return new NovelCTO(byIdAndIsDeletedFalse, null, null);
         }
     }
-
 
     public String getRandomChapter() {
         // 1. 随机取一条小说
@@ -243,8 +254,7 @@ public class NovelService {
 
             // 构建批量更新SQL
             StringBuilder updateSql = new StringBuilder(
-                    "UPDATE Novel n SET n.recommend = CASE n.id "
-            );
+                    "UPDATE Novel n SET n.recommend = CASE n.id ");
 
             // 添加WHEN THEN子句
             for (Long novelId : batchIds) {
@@ -267,10 +277,11 @@ public class NovelService {
     private static final ConcurrentHashMap<Long, ReentrantLock> LOCK_POOL = new ConcurrentHashMap<>();
 
     public Integer increaseUp(Long id, User user, String type,
-                              String favoriteType, Long groupId) {
+            String favoriteType, Long groupId) {
 
         ReentrantLock lock = LOCK_POOL.computeIfAbsent(user.getId(), k -> new ReentrantLock());
-        if (!lock.tryLock()) return 0;
+        if (!lock.tryLock())
+            return 0;
 
         try {
             // 用实例方法调用，不再是静态
@@ -289,7 +300,8 @@ public class NovelService {
             return 0; // 小说不存在或已被删除，返回0
         }
 
-        List<Favorite> favoriteNovel = favoriteRepository.findByUserIdAndObjectIdAndFavoriteType(user.getId(), novel.getId(), favoriteType);
+        List<Favorite> favoriteNovel = favoriteRepository.findByUserIdAndObjectIdAndFavoriteType(user.getId(),
+                novel.getId(), favoriteType);
 
         // 如果用户已经收藏过且当前操作是收藏，则不做任何处理
         if (!favoriteNovel.isEmpty() && type.equals("up")) {
@@ -322,31 +334,35 @@ public class NovelService {
         return 0; // 其他情况返回0
     }
 
-
-//    ===
+    // ===
     // 分页查询小说
-//    public Page<Novel> getNovelsWithPaginationByArgs(String platform, String novelType,String fontNumber, int page, int size) {
-//        Pageable pageable = PageRequest.of(page, size);
-//        String[] parts = fontNumber.split("_");
-//
-//        // 检查是否分隔成功且有两部分
-//        if (parts.length != 2) {
-//            throw new IllegalArgumentException("Invalid input format. Expected format: 'number_number'");
-//        }
-//
-//        // 将字符串转换为 Long
-//        Long firstNumber = Long.parseLong(parts[0]);
-//        Long secondNumber = Long.parseLong(parts[1]);
-//        if (novelType.equals("全部")) {
-//            return novelRepository.findByPlatformAndFontNumberBetweenAndIsDeletedFalseOrderByUpDesc(platform,firstNumber,secondNumber,pageable);
-//        }
-//
-//        return novelRepository.findByPlatformAndNovelTypeAndFontNumberBetweenAndIsDeletedFalseOrderByUpDesc(platform, novelType,firstNumber,secondNumber,pageable);
-//    }
-
+    // public Page<Novel> getNovelsWithPaginationByArgs(String platform, String
+    // novelType,String fontNumber, int page, int size) {
+    // Pageable pageable = PageRequest.of(page, size);
+    // String[] parts = fontNumber.split("_");
+    //
+    // // 检查是否分隔成功且有两部分
+    // if (parts.length != 2) {
+    // throw new IllegalArgumentException("Invalid input format. Expected format:
+    // 'number_number'");
+    // }
+    //
+    // // 将字符串转换为 Long
+    // Long firstNumber = Long.parseLong(parts[0]);
+    // Long secondNumber = Long.parseLong(parts[1]);
+    // if (novelType.equals("全部")) {
+    // return
+    // novelRepository.findByPlatformAndFontNumberBetweenAndIsDeletedFalseOrderByUpDesc(platform,firstNumber,secondNumber,pageable);
+    // }
+    //
+    // return
+    // novelRepository.findByPlatformAndNovelTypeAndFontNumberBetweenAndIsDeletedFalseOrderByUpDesc(platform,
+    // novelType,firstNumber,secondNumber,pageable);
+    // }
 
     public Map<Long, List<String>> getTagsForNovels(List<Long> novelIds) {
-        // Step 1: Query the NovelTag table to get all NovelTag entities for the given novel IDs.
+        // Step 1: Query the NovelTag table to get all NovelTag entities for the given
+        // novel IDs.
         List<NovelTag> novelTags = novelTagRepository.findAllByNovelIdIn(novelIds);
 
         // Step 2: Extract all unique tag IDs from the retrieved NovelTag entities.
@@ -373,7 +389,8 @@ public class NovelService {
             result.put(novelId, new java.util.ArrayList<>());
         }
 
-        // Step 7: Iterate through the NovelTag list and populate the result map with tag names.
+        // Step 7: Iterate through the NovelTag list and populate the result map with
+        // tag names.
         for (NovelTag novelTag : novelTags) {
             Long novelId = novelTag.getNovelId();
             Long tagId = novelTag.getTagId();
@@ -387,10 +404,11 @@ public class NovelService {
         return result;
     }
 
-    public List<NovelCTO> findByAuthorId(String authorName,Long userId) {
+    public List<NovelCTO> findByAuthorId(String authorName, Long userId) {
         List<NovelCTO> page = novelRepository.findByAuthorNameAndIsDeletedFalse(authorName);
         if (userId != null) {
-            List<ReadingRecord> records = readingRecordService.getReadingRecordsByBookIds(userId, page.stream().map(NovelCTO::getId).toList());
+            List<ReadingRecord> records = readingRecordService.getReadingRecordsByBookIds(userId,
+                    page.stream().map(NovelCTO::getId).toList());
             populateReadingRecordInfo(page, records);
         }
         return page;
@@ -411,8 +429,8 @@ public class NovelService {
         return novelCTOS;
     }
 
-
-    public Page<NovelCTO> getNovelsWithPagination(String platform, String fontNumber, String tagIdStr, Pageable pageable, Long userId) {
+    public Page<NovelCTO> getNovelsWithPagination(String platform, String fontNumber, String tagIdStr,
+            Pageable pageable, Long userId) {
         List<Long> tagIdList = convertToLongList(tagIdStr);
         String[] parts = fontNumber.split("_");
         // 检查是否分隔成功且有两部分
@@ -423,7 +441,8 @@ public class NovelService {
         Long firstNumber = Long.parseLong(parts[0]);
         Long secondNumber = Long.parseLong(parts[1]);
         if (tagIdList.contains(0L)) {
-            Page<NovelCTO> page = novelRepository.findByNovelCTOPlatformAndFontNumberBetweenAndIsDeletedFalse(platform, firstNumber, secondNumber, pageable);
+            Page<NovelCTO> page = novelRepository.findByNovelCTOPlatformAndFontNumberBetweenAndIsDeletedFalse(platform,
+                    firstNumber, secondNumber, pageable);
 
             // 获取用户过滤标签和小说标签
             List<UserTagFilter> filterTag = userTagFilterService.getFilterTag(userId);
@@ -435,8 +454,7 @@ public class NovelService {
             Map<Long, List<Long>> novelTagMap = novelTags.stream()
                     .collect(Collectors.groupingBy(
                             NovelTag::getNovelId,
-                            Collectors.mapping(NovelTag::getTagId, Collectors.toList())
-                    ));
+                            Collectors.mapping(NovelTag::getTagId, Collectors.toList())));
             // 过滤掉包含用户屏蔽标签的小说
             List<NovelCTO> filteredNovels = page.getContent().stream()
                     .filter(novel -> {
@@ -448,14 +466,15 @@ public class NovelService {
             page = new PageImpl<>(filteredNovels, pageable, page.getTotalElements());
 
             if (userId != null) {
-                List<ReadingRecord> records = readingRecordService.getReadingRecordsByBookIds(userId, page.getContent().stream().map(NovelCTO::getId).toList());
+                List<ReadingRecord> records = readingRecordService.getReadingRecordsByBookIds(userId,
+                        page.getContent().stream().map(NovelCTO::getId).toList());
                 populateReadingRecordInfo(page.getContent(), records);
             }
             return page;
-        }  else {
+        } else {
             List<Long> novelIdList = novelTagRepository.findNovelIdsByAllTagIds(tagIdList, tagIdList.size());
-            Page<NovelCTO> page = novelRepository.findNovelCTOByNovelIdsAndPlatformAndFontNumberRange(novelIdList, platform, firstNumber, secondNumber, pageable);
-
+            Page<NovelCTO> page = novelRepository.findNovelCTOByNovelIdsAndPlatformAndFontNumberRange(novelIdList,
+                    platform, firstNumber, secondNumber, pageable);
 
             // 获取用户过滤标签和小说标签
             List<UserTagFilter> filterTag = userTagFilterService.getFilterTag(userId);
@@ -467,8 +486,7 @@ public class NovelService {
             Map<Long, List<Long>> novelTagMap = novelTags.stream()
                     .collect(Collectors.groupingBy(
                             NovelTag::getNovelId,
-                            Collectors.mapping(NovelTag::getTagId, Collectors.toList())
-                    ));
+                            Collectors.mapping(NovelTag::getTagId, Collectors.toList())));
             // 过滤掉包含用户屏蔽标签的小说
             List<NovelCTO> filteredNovels = page.getContent().stream()
                     .filter(novel -> {
@@ -479,9 +497,9 @@ public class NovelService {
                     .toList();
             page = new PageImpl<>(filteredNovels, pageable, page.getTotalElements());
 
-
             if (userId != null) {
-                List<ReadingRecord> records = readingRecordService.getReadingRecordsByBookIds(userId, page.getContent().stream().map(NovelCTO::getId).toList());
+                List<ReadingRecord> records = readingRecordService.getReadingRecordsByBookIds(userId,
+                        page.getContent().stream().map(NovelCTO::getId).toList());
                 populateReadingRecordInfo(page.getContent(), records);
             }
             return page;
@@ -527,9 +545,10 @@ public class NovelService {
             }
             List<UserOperationLog> repeatTrNovel = userOperationLogService.getTodayLogs(userId, "repeatTrNovel");
             if (repeatTrNovel.isEmpty()) {
-                userOperationLogService.addLog(userId,"repeatTrNovel", String.valueOf(0));
+                userOperationLogService.addLog(userId, "repeatTrNovel", String.valueOf(0));
             }
-            int repeatTrNovelNum = Integer.parseInt(dictionaryRepository.findDictionaryByKeyFieldAndIsDeletedFalse("repeatTrNovelNum").getValueField());
+            int repeatTrNovelNum = Integer.parseInt(
+                    dictionaryRepository.findDictionaryByKeyFieldAndIsDeletedFalse("repeatTrNovelNum").getValueField());
             List<UserOperationLog> repeatTrNovel1 = userOperationLogService.getTodayLogs(userId, "repeatTrNovel");
             UserOperationLog userOperationLog = repeatTrNovel1.get(0);
             if (Integer.parseInt(userOperationLog.getContent()) > repeatTrNovelNum) {
@@ -541,45 +560,109 @@ public class NovelService {
 
             Novel novel = novelRepository.getReferenceById(novelId);
             novel.setFontNumber(0L);
-            chapterExecuteRepository.deleteAllByNovelId(novelId);
-            terminologyRepository.deleteByNovelId(novelId);
-            chapterRepository.deleteAllByNovelId(novelId);
-            shuTuNovelChapterRepository.deleteByNovelId(novelId);
-            // 只有在扩展数据库可用时才删除
+
+            // 先删除从数据库数据
+            boolean secondaryDeleted = false;
             if (chapterScalingUpOneRepository != null) {
-                chapterScalingUpOneRepository.deleteByNovelId(novelId);
+                try {
+                    // 先检查从库是否有数据
+                    long count = chapterScalingUpOneRepository.count();
+                    log.info("从库当前章节总数: {}", count);
+                    
+                    chapterScalingUpOneRepository.deleteByNovelId(novelId);
+                    secondaryDeleted = true;
+                    log.info("从库章节数据删除成功，novelId={}", novelId);
+                } catch (Exception e) {
+                    log.error("从库章节数据删除失败，novelId={}，继续执行主库删除", novelId, e);
+                    // 不抛出异常，继续执行主库删除
+                }
+            } else {
+                log.debug("从库未配置，跳过从库删除操作");
+                secondaryDeleted = true; // 单数据库模式视为成功
             }
-            novelRepository.save(novel);
+
+            // 删除主库数据
+            try {
+                chapterExecuteRepository.deleteAllByNovelId(novelId);
+                terminologyRepository.deleteByNovelId(novelId);
+                chapterRepository.deleteAllByNovelId(novelId);
+                shuTuNovelChapterRepository.deleteByNovelId(novelId);
+                novelRepository.save(novel);
+                log.info("主库数据清理成功，novelId={}", novelId);
+            } catch (Exception e) {
+                log.error("主库数据清理失败，novelId={}", novelId, e);
+                throw new RuntimeException("主库清理失败: " + e.getMessage(), e);
+            }
+
+            // 记录删除结果
+            if (chapterScalingUpOneRepository != null && !secondaryDeleted) {
+                log.warn("主库清理成功但从库删除失败，novelId={}，存在数据残留", novelId);
+                return "处理成功（从库清理失败，存在残留数据）";
+            }
+
             return "处理成功";
-        }catch (Exception e) {
-            e.printStackTrace();
-            return "清理失败";
+        } catch (Exception e) {
+            log.error("清理失败，novelId={}", novelId, e);
+            return "清理失败: " + e.getMessage();
         }
     }
 
     @Transactional
     public String deleteBook(Long novelId, Long userId) {
-        Optional<UserNovelRelation> byUserIdAndNovelId = userNovelRelationRepository.findByUserIdAndNovelId(userId, novelId);
+        Optional<UserNovelRelation> byUserIdAndNovelId = userNovelRelationRepository.findByUserIdAndNovelId(userId,
+                novelId);
         if (byUserIdAndNovelId.isEmpty()) {
             return "本书不存在";
-        } else {
+        }
+
+        try {
             UserNovelRelation userNovelRelation = byUserIdAndNovelId.get();
             Long novelId1 = userNovelRelation.getNovelId();
-            novelRepository.deleteById(novelId1);
-            chapterRepository.deleteAllByNovelId(novelId1);
-            chapterExecuteRepository.deleteAllByNovelId(novelId1);
-            // 只有在扩展数据库可用时才删除
+
+            // 先删除从库数据
+            boolean secondaryDeleted = false;
             if (chapterScalingUpOneRepository != null) {
-                chapterScalingUpOneRepository.deleteByNovelId(novelId);
+                try {
+                    chapterScalingUpOneRepository.deleteByNovelId(novelId1);
+                    secondaryDeleted = true;
+                    log.info("从库章节数据删除成功，novelId={}", novelId1);
+                } catch (Exception e) {
+                    log.error("从库章节数据删除失败，novelId={}，继续执行主库删除", novelId1, e);
+                    // 不抛出异常，继续执行主库删除
+                }
+            } else {
+                log.debug("从库未配置，跳过从库删除操作");
+                secondaryDeleted = true; // 单数据库模式视为成功
             }
+
+            // 删除主库数据
+            try {
+                novelRepository.deleteById(novelId1);
+                chapterRepository.deleteAllByNovelId(novelId1);
+                chapterExecuteRepository.deleteAllByNovelId(novelId1);
+                log.info("主库删除成功，novelId={}", novelId1);
+            } catch (Exception e) {
+                log.error("主库删除失败，novelId={}, userId={}", novelId1, userId, e);
+                throw new IllegalStateException("删除失败: " + e.getMessage(), e);
+            }
+
+            // 记录删除结果
+            if (chapterScalingUpOneRepository != null && !secondaryDeleted) {
+                log.warn("主库删除成功但从库删除失败，novelId={}，存在数据残留", novelId1);
+                return "删除成功（从库清理失败，存在残留数据）";
+            }
+
             return "删除成功";
+
+        } catch (Exception e) {
+            log.error("删除书籍失败，novelId={}, userId={}", novelId, userId, e);
+            return "删除失败: " + e.getMessage();
         }
     }
 
-
     @Transactional
     public String addTag(DiffDto diffDto, User userByToken) {
-        userOperationLogService.addLog(userByToken.getId(),"addTag",diffDto.toString());
+        userOperationLogService.addLog(userByToken.getId(), "addTag", diffDto.toString());
         Long novelId = diffDto.getNovelId();
         Optional<Novel> byId = novelRepository.findById(novelId);
         if (byId.isEmpty() || byId.get().getPlatform().equals("novelPia")) {
@@ -597,10 +680,10 @@ public class NovelService {
         all.addAll(list2);
         all.addAll(list1);
         all.addAll(list3);
-        novelTagRepository.deleteByNovelIdAndTagIdIn(diffDto.getNovelId(),all);
+        novelTagRepository.deleteByNovelIdAndTagIdIn(diffDto.getNovelId(), all);
         for (String s : add) {
             Tag tagToSave = new Tag(s, "user", s);
-            Optional<Tag> existingTag = tagRepository.findByPlatformAndTrueName("user",tagToSave.getTrueName());
+            Optional<Tag> existingTag = tagRepository.findByPlatformAndTrueName("user", tagToSave.getTrueName());
             if (existingTag.isEmpty()) {
                 Tag syosetuTag = tagRepository.save(tagToSave);
                 novelTagRepository.save(new NovelTag(diffDto.getNovelId(), syosetuTag.getId()));

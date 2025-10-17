@@ -37,8 +37,8 @@ public class TaskSchedulerManager {
             isRunning = true;
             schedulerExecutor.scheduleAtFixedRate(
                     this::submitTask,
-                    0,    // 初始延迟0秒
-                    60,   // 每10秒提交一次
+                    120,
+                    60,
                     TimeUnit.SECONDS
             );
         }
@@ -81,13 +81,17 @@ public class TaskSchedulerManager {
         novelpia.executeUploadTranslationException();
     }
 
-    // 动态控制执行条件（例如从数据库读取）
+    // 动态控制执行条件(例如从数据库读取)
     private boolean shouldExecute() {
-
-
-        // 实现你的条件判断逻辑，例如：
-        // return Boolean.parseBoolean(dictionaryRepository.findByKey("executeTr").getValue());
-        return Boolean.parseBoolean(dictionaryRepository.findDictionaryByKeyFieldAndIsDeletedFalse("controllAllTr").getValueField());
+        try {
+            var dictionary = dictionaryRepository.findDictionaryByKeyFieldAndIsDeletedFalse("controllAllTr");
+            if (dictionary == null) {
+                return false;
+            }
+            return Boolean.parseBoolean(dictionary.getValueField());
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     // 停止调度（可选）

@@ -24,9 +24,12 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.*;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Service
 public class ChapterService {
+    private static final Logger log = LoggerFactory.getLogger(ChapterService.class);
 
     @Autowired
     private ChapterRepository chapterRepository;
@@ -195,18 +198,63 @@ public class ChapterService {
         return chapterCDO;
     }
 
+    // 主机标识常量
+    private static final String HOST_SERVER_NAME = "host1";
+    
     public ChapterCDO findByIdAndIsDeletedFalse(Long id) {
         Optional<ChapterSync> chapterSync = chapterSyncRepository.findByChapterId(id);
-        Chapter byIdAndIsDeletedFalse = chapterRepository.findByIdAndIsDeletedFalse(id);
-        // 如果未配置扩展数据库或章节未同步，从主库读取
-        if (chapterScalingUpOneRepository == null || chapterSync.isEmpty() || !chapterSync.get().getSynced()) {
-            byIdAndIsDeletedFalse.setContent(StringEncoder.cleanText(byIdAndIsDeletedFalse.getContent()));
-            return new ChapterCDO(byIdAndIsDeletedFalse);
-        } else if (chapterSync.get().getHostServerName().equals("host1") && chapterSync.get().getSynced()) {
-            ChapterScalingUpOne chapterScalingUpOne = chapterScalingUpOneRepository.findById(byIdAndIsDeletedFalse.getId()).get();
-            return new ChapterCDO(chapterScalingUpOne);
-        } else {
-            return new ChapterCDO(new ChapterScalingUpOne());
+        Chapter chapter = chapterRepository.findByIdAndIsDeletedFalse(id);
+        
+        if (chapter == null) {
+            log.error("章节不存在，chapterId={}", id);
+            throw new IllegalArgumentException("章节不存在: " + id);
+        }
+        
+        // 情况1: 未配置扩展数据库 -> 从主库读取
+        if (chapterScalingUpOneRepository == null) {
+            chapter.setContent(StringEncoder.cleanText(chapter.getContent()));
+            return new ChapterCDO(chapter);
+        }
+        
+        // 情况2: 章节未同步 -> 从主库读取
+        if (chapterSync.isEmpty() || !Boolean.TRUE.equals(chapterSync.get().getSynced())) {
+            chapter.setContent(StringEncoder.cleanText(chapter.getContent()));
+            return new ChapterCDO(chapter);
+        }
+        
+        // 情况3: 检查主机标识
+        ChapterSync sync = chapterSync.get();
+        if (!HOST_SERVER_NAME.equals(sync.getHostServerName())) {
+            log.debug("主机标识不匹配，降级到主库读取，chapterId={}, expected={}, actual={}", 
+                     id, HOST_SERVER_NAME, sync.getHostServerName());
+            chapter.setContent(StringEncoder.cleanText(chapter.getContent()));
+            return new ChapterCDO(chapter);
+        }
+        
+        // 情况4: 从扩展数据库读取（带类型安全检查）
+        try {
+            Optional<ChapterScalingUpOne> scalingUpOpt = 
+                chapterScalingUpOneRepository.findById(chapter.getId());
+            
+            if (scalingUpOpt.isPresent()) {
+                ChapterScalingUpOne scalingUpChapter = scalingUpOpt.get();
+                // 确保返回的是正确类型
+                if (scalingUpChapter.getId() == null || !scalingUpChapter.getId().equals(id)) {
+                    log.error("从库数据ID不匹配，expected={}, actual={}", id, scalingUpChapter.getId());
+                    throw new IllegalStateException("从库数据ID不匹配");
+                }
+                return new ChapterCDO(scalingUpChapter);
+            } else {
+                // 扩展库中数据不存在，降级到主库
+                log.warn("章节已标记为同步但从库中不存在，降级到主库读取，chapterId={}", id);
+                chapter.setContent(StringEncoder.cleanText(chapter.getContent()));
+                return new ChapterCDO(chapter);
+            }
+        } catch (Exception e) {
+            // 从库查询异常，降级到主库
+            log.error("从库查询异常，降级到主库读取，chapterId={}", id, e);
+            chapter.setContent(StringEncoder.cleanText(chapter.getContent()));
+            return new ChapterCDO(chapter);
         }
     }
 
@@ -403,8 +451,8 @@ public class ChapterService {
             chapterIds.add(cto.getChapterId());
         }
         int batchSize = 10;
-        List<Chapter> chapterList = new ArrayList<>();;
-        List<ChapterScalingUpOne> chapterScalingUpOneList = new ArrayList<>();;
+        List<Chapter> chapterList = new ArrayList<>();
+        List<ChapterScalingUpOne> chapterScalingUpOneList = new ArrayList<>();
         for (int i = 0; i < chapterIds.size(); i += batchSize) {
             int end = Math.min(i + batchSize, chapterIds.size());
             List<Long> batchIds = chapterIds.subList(i, end);
@@ -413,8 +461,23 @@ public class ChapterService {
             ChapterSyncCTO chapterSyncCTO = findChapterSyncCTOByIdAndIsDeletedFalse(batchIds);
             List<Chapter> chapters = chapterSyncCTO.getChapters();
             List<ChapterScalingUpOne> chapterScalingUpOnes = chapterSyncCTO.getChapterScalingUpOnes();
+            
+            // 确保返回的列表不为 null
+            if (chapters == null) {
+                log.warn("批量查询章节返回 null，batchIds={}", batchIds);
+                chapters = new ArrayList<>();
+            }
+            if (chapterScalingUpOnes == null) {
+                log.warn("批量查询从库章节返回 null，batchIds={}", batchIds);
+                chapterScalingUpOnes = new ArrayList<>();
+            }
+            
             // 5. 逐章替换 content
             chapters.forEach(ch -> {
+                if (ch == null) {
+                    log.warn("批量查询返回的章节包含 null 元素");
+                    return;
+                }
                 String content = ch.getContent();
                 if (content == null || content.isEmpty()) return;
                 for (Map.Entry<String, String> e : targetToModify.entrySet()) {
@@ -426,6 +489,10 @@ public class ChapterService {
             chapterList.addAll(chapters);
 
             chapterScalingUpOnes.forEach(ch -> {
+                if (ch == null) {
+                    log.warn("批量查询返回的从库章节包含 null 元素");
+                    return;
+                }
                 String content = ch.getContent();
                 if (content == null || content.isEmpty()) return;
                 for (Map.Entry<String, String> e : targetToModify.entrySet()) {
@@ -437,27 +504,64 @@ public class ChapterService {
             chapterScalingUpOneList.addAll(chapterScalingUpOnes);
         }
         chapterRepository.saveAll(chapterList);
-        // 只有在扩展数据库可用时才保存
+        // 只有在扩展数据库可用时才保存，并添加额外的类型检查
         if (chapterScalingUpOneRepository != null && !chapterScalingUpOneList.isEmpty()) {
-            chapterScalingUpOneRepository.saveAll(chapterScalingUpOneList);
+            try {
+                chapterScalingUpOneRepository.saveAll(chapterScalingUpOneList);
+                log.info("成功保存 {} 条从库章节", chapterScalingUpOneList.size());
+            } catch (Exception e) {
+                log.error("保存从库章节失败", e);
+                throw e;
+            }
         }
     }
 
 
     public ChapterSyncCTO findChapterSyncCTOByIdAndIsDeletedFalse(List<Long> chapterIds) {
+        // 参数校验
+        if (chapterIds == null || chapterIds.isEmpty()) {
+            log.warn("查询章节同步数据时传入空的章节ID列表");
+            return new ChapterSyncCTO(new ArrayList<>(), new ArrayList<>());
+        }
+        
         List<ChapterSync> syncedList = chapterSyncRepository.findByChapterIdInAndSyncedTrue(chapterIds);
         List<Long> list = syncedList.stream().map(ChapterSync::getChapterId).toList();
         List<ChapterScalingUpOne> chapterScalingUpOneList = new ArrayList<>();
-        // 只有在扩展数据库可用时才查询
-        if (chapterScalingUpOneRepository != null) {
-            chapterScalingUpOneList = chapterScalingUpOneRepository.findAllById(list);
+        
+        // 只有在扩展数据库可用时才查询，并添加类型安全检查
+        if (chapterScalingUpOneRepository != null && !list.isEmpty()) {
+            try {
+                List<ChapterScalingUpOne> fetchedList = chapterScalingUpOneRepository.findAllById(list);
+                if (fetchedList != null) {
+                    chapterScalingUpOneList = fetchedList;
+                    // 验证返回的数据ID是否在预期范围内
+                    long invalidCount = chapterScalingUpOneList.stream()
+                        .filter(ch -> ch == null || !list.contains(ch.getId()))
+                        .count();
+                    if (invalidCount > 0) {
+                        log.warn("从库查询返回了 {} 条无效数据", invalidCount);
+                    }
+                } else {
+                    log.warn("从库查询返回 null，使用空列表");
+                }
+            } catch (Exception e) {
+                log.error("从库批量查询失败，chapterIds={}", list, e);
+                // 继续执行，只是不使用从库数据
+            }
         }
+        
         // 2. 取出它们的 chapterId
         Set<Long> syncedIds = syncedList.stream().map(ChapterSync::getChapterId).collect(Collectors.toSet());
         List<Long> unSyncedIds = chapterIds.stream()
                 .filter(id -> !syncedIds.contains(id))
                 .toList();
         List<Chapter> chapterList = chapterRepository.findAllById(unSyncedIds);
-        return new ChapterSyncCTO(chapterList,chapterScalingUpOneList);
+        
+        if (chapterList == null) {
+            log.warn("主库查询返回 null，使用空列表");
+            chapterList = new ArrayList<>();
+        }
+        
+        return new ChapterSyncCTO(chapterList, chapterScalingUpOneList);
     }
 }
