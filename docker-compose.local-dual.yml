@@ -1,0 +1,128 @@
+version: '3.8'
+
+services:
+  mariadb-primary:
+    image: mariadb:11.8-noble
+    container_name: novel-mariadb-primary
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_PRIMARY_ROOT_PASSWORD:-novel_primary_root_password}
+      MYSQL_DATABASE: ${MYSQL_PRIMARY_DATABASE:-novel}
+      MYSQL_USER: ${MYSQL_PRIMARY_USER:-novel_user}
+      MYSQL_PASSWORD: ${MYSQL_PRIMARY_PASSWORD:-novel_password}
+      TZ: Asia/Shanghai
+    volumes:
+      - mariadb-primary-data:/var/lib/mysql
+    ports:
+      - "${MYSQL_PRIMARY_PORT:-3306}:3306"
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_ai_ci
+      - --max-connections=200
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - novel-network
+
+  mariadb-secondary:
+    image: mariadb:11.8-noble
+    container_name: novel-mariadb-secondary
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_SECONDARY_ROOT_PASSWORD:-novel_secondary_root_password}
+      MYSQL_DATABASE: ${MYSQL_SECONDARY_DATABASE:-novel}
+      MYSQL_USER: ${MYSQL_SECONDARY_USER:-novel_user}
+      MYSQL_PASSWORD: ${MYSQL_SECONDARY_PASSWORD:-novel_password}
+      TZ: Asia/Shanghai
+    volumes:
+      - mariadb-secondary-data:/var/lib/mysql
+    ports:
+      - "${MYSQL_SECONDARY_PORT:-3307}:3306"
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_ai_ci
+      - --max-connections=200
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - novel-network
+
+  novel-app:
+    image: mattgideon/freenovel:v1.0.11-prod
+    container_name: novel-app
+    ports:
+      - "${SERVER_PORT:-8081}:8081"
+    environment:
+      # 应用配置
+      SERVER_PORT: 8081
+      SPRING_PROFILES_ACTIVE: prod
+      
+      # Sitemap 配置
+      SITEMAP_RUN: ${SITEMAP_RUN:-false}
+      
+      # 代理配置
+      PROXY_HOST: ${PROXY_HOST:-}
+      PROXY_PORT: ${PROXY_PORT:-7897}
+      PROXY_CLIENT: ${PROXY_CLIENT:-false}
+      
+      # Cloudflare R2 配置
+      CLOUDFLARE_R2_ACCOUNT_ID: ${CLOUDFLARE_R2_ACCOUNT_ID:-}
+      CLOUDFLARE_R2_ACCESS_KEY: ${CLOUDFLARE_R2_ACCESS_KEY:-}
+      CLOUDFLARE_R2_SECRET_KEY: ${CLOUDFLARE_R2_SECRET_KEY:-}
+      CLOUDFLARE_R2_BUCKET_NAME: ${CLOUDFLARE_R2_BUCKET_NAME:-photo}
+      CLOUDFLARE_R2_REGION: ${CLOUDFLARE_R2_REGION:-auto}
+      CLOUDFLARE_R2_ENABLED: ${CLOUDFLARE_R2_ENABLED:-true}
+      
+      # 文件上传目录
+      FILE_UPLOAD_TEMP_DIR: /app/tmp/
+      FILE_UPLOAD_STORAGE_DIR: /app/file/
+      
+      # 双数据库模式
+      DATABASE_MODE: dual
+      
+      # 主数据库配置
+      PRIMARY_DB_URL: jdbc:mariadb://mariadb-primary:3306/${MYSQL_PRIMARY_DATABASE:-novel}?allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=UTC&connectTimeout=30000&socketTimeout=60000
+      PRIMARY_DB_USERNAME: ${MYSQL_PRIMARY_USER:-novel_user}
+      PRIMARY_DB_PASSWORD: ${MYSQL_PRIMARY_PASSWORD:-novel_password}
+      PRIMARY_DB_POOL_SIZE: ${PRIMARY_DB_POOL_SIZE:-15}
+      PRIMARY_DB_MIN_IDLE: ${PRIMARY_DB_MIN_IDLE:-5}
+      
+      # 从数据库配置
+      SECONDARY_DB_URL: jdbc:mariadb://mariadb-secondary:3306/${MYSQL_SECONDARY_DATABASE:-novel}?allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=UTC&connectTimeout=30000&socketTimeout=60000
+      SECONDARY_DB_USERNAME: ${MYSQL_SECONDARY_USER:-novel_user}
+      SECONDARY_DB_PASSWORD: ${MYSQL_SECONDARY_PASSWORD:-novel_password}
+      SECONDARY_DB_POOL_SIZE: ${SECONDARY_DB_POOL_SIZE:-8}
+      SECONDARY_DB_MIN_IDLE: ${SECONDARY_DB_MIN_IDLE:-3}
+    volumes:
+      - ./app/tmp:/app/tmp
+      - ./app/file:/app/file
+    depends_on:
+      mariadb-primary:
+        condition: service_healthy
+      mariadb-secondary:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - novel-network
+
+volumes:
+  mariadb-primary-data:
+  mariadb-secondary-data:
+
+networks:
+  novel-network:
+    driver: bridge

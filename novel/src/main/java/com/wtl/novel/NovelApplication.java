@@ -11,7 +11,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @EnableScheduling
 @EnableAsync
 @EnableCaching
-@EntityScan(basePackages = {"com.wtl.novel.entity"})
+@EntityScan(basePackages = {"com.wtl.novel.entity", "com.wtl.novel.scalingUp.entity"})
 public class NovelApplication {
 
 	public static void main(String[] args) {

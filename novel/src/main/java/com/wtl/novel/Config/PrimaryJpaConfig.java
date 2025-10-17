@@ -22,12 +22,12 @@ import java.util.Map;
 @Configuration
 @EnableTransactionManagement
 @EnableJpaRepositories(
-        basePackages = "com.wtl.novel.repository",   // 主库 Repository 所在包
+        basePackages = "com.wtl.novel.repository",
         entityManagerFactoryRef = "primaryEntityManagerFactory",
         transactionManagerRef = "primaryTransactionManager")
 public class PrimaryJpaConfig {
 
-    @Primary  // 必须有一个主数据源
+    @Primary
     @Bean
     @ConfigurationProperties(prefix = "spring.datasource.primary")
     public DataSource primaryDataSource() {
@@ -40,7 +40,7 @@ public class PrimaryJpaConfig {
             EntityManagerFactoryBuilder builder) {
         return builder
                 .dataSource(primaryDataSource())
-                .packages("com.wtl.novel.entity")      // 主库实体所在包
+                .packages("com.wtl.novel.entity")
                 .persistenceUnit("primaryPU")
                 .properties(jpaProperties())
                 .build();
@@ -55,13 +55,12 @@ public class PrimaryJpaConfig {
 
     private Map<String, Object> jpaProperties() {
         Map<String, Object> p = new HashMap<>();
-        // 使用 MariaDB 专用方言以获得更好的性能和兼容性
-        p.put("hibernate.dialect", "org.hibernate.dialect.MariaDBDialect");
+
         p.put("hibernate.hbm2ddl.auto", "none");
         p.put("hibernate.show_sql", "false");
         
-        // 生产环境推荐配置
-        p.put("hibernate.jdbc.batch_size", "20");  // 批量操作优化
+        // 生产环境配置
+        p.put("hibernate.jdbc.batch_size", "20");
         p.put("hibernate.order_inserts", "true");
         p.put("hibernate.order_updates", "true");
         p.put("hibernate.jdbc.batch_versioned_data", "true");

@@ -23,7 +23,7 @@ public class ChapterSyncService {
 
     @Autowired
     private  ChapterSyncRepository chapterSyncRepository;
-    @Autowired
+    @Autowired(required = false)
     private ChapterScalingUpOneRepository chapterScalingUpOneRepository;
     @Autowired
     private DictionaryRepository dictionaryRepository;
@@ -32,6 +32,11 @@ public class ChapterSyncService {
 
     @Scheduled(fixedDelay = 60_000)
     public void retryUnSyncedChapters() {
+        // 如果未配置扩展数据库，直接返回
+        if (chapterScalingUpOneRepository == null) {
+            return;
+        }
+        
         try {
             boolean runScalingUp = Boolean.parseBoolean(dictionaryRepository.findDictionaryByKeyFieldAndIsDeletedFalse("RunScalingUp").getValueField());
             if (!runScalingUp) {
@@ -57,6 +62,11 @@ public class ChapterSyncService {
     }
 
     public void processSingleChapterWithoutTransaction(ChapterSync cs) {
+        // 如果未配置扩展数据库，直接返回
+        if (chapterScalingUpOneRepository == null) {
+            return;
+        }
+        
         try {
             Chapter chapter = chapterRepository.findById(cs.getChapterId()).orElse(null);
             if (chapter == null) {
@@ -98,6 +108,11 @@ public class ChapterSyncService {
      * 补偿逻辑：确保数据一致性
      */
     private void compensateChapterSync(Long chapterId) {
+        // 如果未配置扩展数据库，直接返回
+        if (chapterScalingUpOneRepository == null) {
+            return;
+        }
+        
         try {
             // 1. 检查 scalingUp 库中是否已存在该章节
             boolean existsInScalingUp = chapterScalingUpOneRepository.existsById(chapterId);

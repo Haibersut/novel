@@ -49,7 +49,7 @@ public class ChapterService {
     private ChapterImageLinkService chapterImageLinkService;
     @Autowired
     private  ChapterSyncRepository chapterSyncRepository;
-    @Autowired
+    @Autowired(required = false)
     private ChapterScalingUpOneRepository chapterScalingUpOneRepository;
     private final static QuoteModifier quoteModifier = new QuoteModifier();
 
@@ -198,7 +198,8 @@ public class ChapterService {
     public ChapterCDO findByIdAndIsDeletedFalse(Long id) {
         Optional<ChapterSync> chapterSync = chapterSyncRepository.findByChapterId(id);
         Chapter byIdAndIsDeletedFalse = chapterRepository.findByIdAndIsDeletedFalse(id);
-        if (chapterSync.isEmpty() || !chapterSync.get().getSynced()) {
+        // 如果未配置扩展数据库或章节未同步，从主库读取
+        if (chapterScalingUpOneRepository == null || chapterSync.isEmpty() || !chapterSync.get().getSynced()) {
             byIdAndIsDeletedFalse.setContent(StringEncoder.cleanText(byIdAndIsDeletedFalse.getContent()));
             return new ChapterCDO(byIdAndIsDeletedFalse);
         } else if (chapterSync.get().getHostServerName().equals("host1") && chapterSync.get().getSynced()) {
@@ -436,14 +437,21 @@ public class ChapterService {
             chapterScalingUpOneList.addAll(chapterScalingUpOnes);
         }
         chapterRepository.saveAll(chapterList);
-        chapterScalingUpOneRepository.saveAll(chapterScalingUpOneList);
+        // 只有在扩展数据库可用时才保存
+        if (chapterScalingUpOneRepository != null && !chapterScalingUpOneList.isEmpty()) {
+            chapterScalingUpOneRepository.saveAll(chapterScalingUpOneList);
+        }
     }
 
 
     public ChapterSyncCTO findChapterSyncCTOByIdAndIsDeletedFalse(List<Long> chapterIds) {
         List<ChapterSync> syncedList = chapterSyncRepository.findByChapterIdInAndSyncedTrue(chapterIds);
         List<Long> list = syncedList.stream().map(ChapterSync::getChapterId).toList();
-        List<ChapterScalingUpOne> chapterScalingUpOneList = chapterScalingUpOneRepository.findAllById(list);
+        List<ChapterScalingUpOne> chapterScalingUpOneList = new ArrayList<>();
+        // 只有在扩展数据库可用时才查询
+        if (chapterScalingUpOneRepository != null) {
+            chapterScalingUpOneList = chapterScalingUpOneRepository.findAllById(list);
+        }
         // 2. 取出它们的 chapterId
         Set<Long> syncedIds = syncedList.stream().map(ChapterSync::getChapterId).collect(Collectors.toSet());
         List<Long> unSyncedIds = chapterIds.stream()

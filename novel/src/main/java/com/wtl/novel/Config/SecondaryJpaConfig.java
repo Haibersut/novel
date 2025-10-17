@@ -20,11 +20,11 @@ import java.util.Map;
 
 @Configuration
 @EnableTransactionManagement
-@ConditionalOnProperty(name = "database.mode", havingValue = "dual", matchIfMissing = false)
 @EnableJpaRepositories(
         basePackages = "com.wtl.novel.scalingUp.repository",
         entityManagerFactoryRef = "secondaryEntityManagerFactory",
         transactionManagerRef = "secondaryTransactionManager")
+@ConditionalOnProperty(name = "database.mode", havingValue = "dual", matchIfMissing = false)
 public class SecondaryJpaConfig {
 
     @Bean
@@ -53,7 +53,6 @@ public class SecondaryJpaConfig {
     private Map<String, Object> jpaProperties() {
         Map<String, Object> p = new HashMap<>();
 
-        p.put("hibernate.dialect", "org.hibernate.dialect.MariaDBDialect");
         p.put("hibernate.hbm2ddl.auto", "none");
         p.put("hibernate.show_sql", "false");
         

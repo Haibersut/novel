@@ -79,6 +79,16 @@ public class SignatureInterceptor implements HandlerInterceptor {
             String nonce = authorizationInfos[3];
             String userAgent = request.getHeader("User-Agent");
             String ip = request.getHeader("X-Forwarded-For");
+            
+            // 添加空值检查,避免空指针异常
+            if (ip == null || ip.isEmpty()) {
+                // 尝试获取其他可能的IP头
+                ip = request.getHeader("X-Real-IP");
+                if (ip == null || ip.isEmpty()) {
+                    ip = request.getRemoteAddr();
+                }
+            }
+            
 //            ip = "1.0.0.1";
             if (matchesShuTu(requestURI)) {
                 Credential credential = credentialService.findByToken(authorization);

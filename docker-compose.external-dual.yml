@@ -1,0 +1,65 @@
+version: '3.8'
+
+services:
+  novel-app:
+    image: mattgideon/freenovel:v1.0.11-prod
+    container_name: novel-app
+    ports:
+      - "${SERVER_PORT:-8081}:8081"
+    environment:
+      # 应用配置
+      SERVER_PORT: 8081
+      SPRING_PROFILES_ACTIVE: prod
+      
+      # Sitemap 配置
+      SITEMAP_RUN: ${SITEMAP_RUN:-false}
+      
+      # 代理配置
+      PROXY_HOST: ${PROXY_HOST:-}
+      PROXY_PORT: ${PROXY_PORT:-7897}
+      PROXY_CLIENT: ${PROXY_CLIENT:-false}
+      
+      # Cloudflare R2 配置
+      CLOUDFLARE_R2_ACCOUNT_ID: ${CLOUDFLARE_R2_ACCOUNT_ID:-}
+      CLOUDFLARE_R2_ACCESS_KEY: ${CLOUDFLARE_R2_ACCESS_KEY:-}
+      CLOUDFLARE_R2_SECRET_KEY: ${CLOUDFLARE_R2_SECRET_KEY:-}
+      CLOUDFLARE_R2_BUCKET_NAME: ${CLOUDFLARE_R2_BUCKET_NAME:-photo}
+      CLOUDFLARE_R2_REGION: ${CLOUDFLARE_R2_REGION:-auto}
+      CLOUDFLARE_R2_ENABLED: ${CLOUDFLARE_R2_ENABLED:-true}
+      
+      # 文件上传目录
+      FILE_UPLOAD_TEMP_DIR: /app/tmp/
+      FILE_UPLOAD_STORAGE_DIR: /app/file/
+      
+      # 双数据库模式
+      DATABASE_MODE: dual
+      
+      # 主数据库配置
+      PRIMARY_DB_URL: ${PRIMARY_DB_URL}
+      PRIMARY_DB_USERNAME: ${PRIMARY_DB_USERNAME}
+      PRIMARY_DB_PASSWORD: ${PRIMARY_DB_PASSWORD}
+      PRIMARY_DB_POOL_SIZE: ${PRIMARY_DB_POOL_SIZE:-15}
+      PRIMARY_DB_MIN_IDLE: ${PRIMARY_DB_MIN_IDLE:-5}
+      
+      # 从数据库配置
+      SECONDARY_DB_URL: ${SECONDARY_DB_URL}
+      SECONDARY_DB_USERNAME: ${SECONDARY_DB_USERNAME}
+      SECONDARY_DB_PASSWORD: ${SECONDARY_DB_PASSWORD}
+      SECONDARY_DB_POOL_SIZE: ${SECONDARY_DB_POOL_SIZE:-8}
+      SECONDARY_DB_MIN_IDLE: ${SECONDARY_DB_MIN_IDLE:-3}
+    volumes:
+      - ./app/tmp:/app/tmp
+      - ./app/file:/app/file
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - novel-network
+
+networks:
+  novel-network:
+    driver: bridge

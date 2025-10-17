@@ -48,10 +48,10 @@ COPY --from=backend-builder --chown=appuser:appuser /app/target/dependency/BOOT-
 
 USER appuser
 
-EXPOSE 8080
+EXPOSE 8081
 
-HEALTHCHECK --interval=30s --timeout=3s --start-period=60s --retries=3 \
-  CMD curl -f http://localhost:8080/actuator/health || exit 1
+HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=3 \
+  CMD ["curl", "-f", "http://localhost:8081/actuator/health"]
 
 ENV JAVA_OPTS="-Xms512m -Xmx2048m \
     -XX:+UseG1GC \

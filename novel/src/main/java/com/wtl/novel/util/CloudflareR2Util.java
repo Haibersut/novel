@@ -45,6 +45,9 @@ public class CloudflareR2Util {
     @Value("${cloudflare.r2.region:auto}")
     private String region;
 
+    @Value("${cloudflare.r2.enabled:true}")
+    private boolean r2Enabled;
+
     @Value("${file.upload.temp-dir:/home/novel/tmp/}")
     private String tempDirectory;
 
@@ -55,6 +58,18 @@ public class CloudflareR2Util {
 
     @PostConstruct
     public void init() {
+        if (!r2Enabled) {
+            logger.info("Cloudflare R2 已禁用,跳过初始化");
+            return;
+        }
+        
+        if (accountId == null || accountId.isEmpty() || 
+            accessKey == null || accessKey.isEmpty() || 
+            secretKey == null || secretKey.isEmpty()) {
+            logger.warn("Cloudflare R2 配置不完整,跳过初始化");
+            return;
+        }
+        
         try {
             String endpoint = String.format("https://%s.r2.cloudflarestorage.com", accountId);
             AwsBasicCredentials credentials = AwsBasicCredentials.create(accessKey, secretKey);
@@ -65,8 +80,8 @@ public class CloudflareR2Util {
                     .build();
             logger.info("Cloudflare R2 客户端初始化成功");
         } catch (Exception e) {
-            logger.error("Cloudflare R2 客户端初始化失败", e);
-            throw new RuntimeException("无法初始化 Cloudflare R2 客户端", e);
+            logger.error("Cloudflare R2 客户端初始化失败: {}", e.getMessage());
+            logger.warn("R2 客户端初始化失败,但应用将继续运行");
         }
     }
 
@@ -115,6 +130,10 @@ public class CloudflareR2Util {
 
     // 上传图片到 Cloudflare R2
     public String uploadImageToCloudflareR2(String localFilePath, String objectKey) {
+        if (s3Client == null) {
+            logger.warn("Cloudflare R2 客户端未初始化,无法上传图片: {}", objectKey);
+            return null;
+        }
         try {
             PutObjectRequest putObjectRequest = PutObjectRequest.builder()
                     .bucket(bucketName)
@@ -133,6 +152,10 @@ public class CloudflareR2Util {
 
     // 上传图片到 Cloudflare R2
     public String uploadImageToCloudflareR2(File localFile, String objectKey) {
+        if (s3Client == null) {
+            logger.warn("Cloudflare R2 客户端未初始化,无法上传图片: {}", objectKey);
+            return null;
+        }
         try {
             PutObjectRequest putObjectRequest = PutObjectRequest.builder()
                     .bucket(bucketName)

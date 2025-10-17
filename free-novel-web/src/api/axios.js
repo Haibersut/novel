@@ -7,8 +7,7 @@ import { generateSignature } from '@/utils/signature';
 
 // 创建 axios 实例
 const service = axios.create({
-//    baseURL: 'https://freenovel.sbs', // 根据实际情况配置
-     baseURL: 'http://localhost:8081', // 根据实际情况配置
+    baseURL: process.env.VUE_APP_API_BASE_URL || '',
     timeout: 300000, // 请求超时时间
 });
 

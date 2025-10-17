@@ -29,7 +29,7 @@ import java.util.stream.Stream;
 public class NovelService {
     @Autowired
     private NovelRepository novelRepository;
-    @Autowired
+    @Autowired(required = false)
     private ChapterScalingUpOneRepository chapterScalingUpOneRepository;
     @Autowired
     private ShuTuNovelChapterRepository shuTuNovelChapterRepository;
@@ -535,7 +535,10 @@ public class NovelService {
             terminologyRepository.deleteByNovelId(novelId);
             chapterRepository.deleteAllByNovelId(novelId);
             shuTuNovelChapterRepository.deleteByNovelId(novelId);
-            chapterScalingUpOneRepository.deleteByNovelId(novelId);
+            // 只有在扩展数据库可用时才删除
+            if (chapterScalingUpOneRepository != null) {
+                chapterScalingUpOneRepository.deleteByNovelId(novelId);
+            }
             novelRepository.save(novel);
             return "处理成功";
         }catch (Exception e) {
@@ -555,7 +558,10 @@ public class NovelService {
             novelRepository.deleteById(novelId1);
             chapterRepository.deleteAllByNovelId(novelId1);
             chapterExecuteRepository.deleteAllByNovelId(novelId1);
-            chapterScalingUpOneRepository.deleteByNovelId(novelId);
+            // 只有在扩展数据库可用时才删除
+            if (chapterScalingUpOneRepository != null) {
+                chapterScalingUpOneRepository.deleteByNovelId(novelId);
+            }
             return "删除成功";
         }
     }
