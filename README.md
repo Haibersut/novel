@@ -94,6 +94,26 @@ docker-compose -f docker-compose.local-dual.yml up -d
 
 应用启动后，访问 `http://localhost:8081` 即可使用。
 
+首次启动时，在使用全新数据库的情况下，系统会自动创建默认账户。
+
+您需要查看容器日志获取初始账号信息：
+
+```bash
+docker logs <container_name> （默认是novel-app）
+```
+
+日志中会包含类似以下内容的初始化账号信息：
+
+```
+====================================
+novel-app                | 2025-10-18 00:19:28.844 [main] INFO  c.w.novel.Config.DatabaseInitializer - 成功创建默认用户!
+novel-app                | 2025-10-18 00:19:28.844 [main] INFO  c.w.novel.Config.DatabaseInitializer - 用户名: admin@novel.com
+novel-app                | 2025-10-18 00:19:28.844 [main] INFO  c.w.novel.Config.DatabaseInitializer - 密码: FATVwtgY77xv
+novel-app                | 2025-10-18 00:19:28.844 [main] INFO  c.w.novel.Config.DatabaseInitializer - 初始积分: 10000
+novel-app                | 2025-10-18 00:19:28.844 [main] INFO  c.w.novel.Config.DatabaseInitializer - 请务必保存此密码,并在首次登录后立即修改!
+novel-app                | 2025-10-18 00:19:28.844 [main] INFO  c.w.novel.Config.DatabaseInitializer - ====================================
+```
+
 ### 环境变量说明
 
 | 变量名 | 说明 | 默认值 |
