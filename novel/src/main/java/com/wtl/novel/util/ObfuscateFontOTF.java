@@ -10,6 +10,8 @@ import org.apache.fontbox.ttf.CmapTable;
 import org.apache.fontbox.ttf.CmapSubtable;
 import org.apache.fontbox.ttf.TTFParser;
 import org.apache.fontbox.ttf.TrueTypeFont;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -22,6 +24,8 @@ import java.util.stream.Collectors;
 
 @Component
 public class ObfuscateFontOTF {
+
+    private static final Logger log = LoggerFactory.getLogger(ObfuscateFontOTF.class);
 
     public Map<String, String> fontMap = new HashMap<>();
     public Map<String, String> reversedFontMap = new HashMap<>();
@@ -52,13 +56,12 @@ public class ObfuscateFontOTF {
                                 Map.Entry::getKey,
                                 (v1, v2) -> v1   // 如有重复值，保留先出现的
                         ));
-                System.out.println("字体映射表已加载，共 " + fontMap.size() + " 条映射");
+                log.info("字体映射表已加载，共 {} 条映射", fontMap.size());
             } else {
-                System.out.println("mapping.json 文件不存在，fontMap 为空");
+                log.warn("mapping.json 文件不存在，fontMap 为空");
             }
         } catch (Exception e) {
-            e.printStackTrace();
-            System.out.println("初始化加载字体映射失败");
+            log.error("初始化加载字体映射失败", e);
         }
     }
 
@@ -117,7 +120,7 @@ public class ObfuscateFontOTF {
         for (Character ch : textChars) {
             int gid = unicodeCmap.getGlyphId(ch);
             if (gid == 0) {
-                System.out.println("警告：字体中没有找到字符 " + ch);
+                log.warn("警告：字体中没有找到字符 {}", ch);
                 continue;
             }
             int fakeCode = available.get(idx++);
@@ -159,12 +162,12 @@ public class ObfuscateFontOTF {
                     new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
                 String line;
                 while ((line = reader.readLine()) != null) {
-                    System.out.println("[Python] " + line);
+                    log.info("[Python] {}", line);
                 }
             }
 
             int exitCode = process.waitFor();
-            System.out.println("Python 脚本执行完毕，退出码: " + exitCode);
+            log.info("Python 脚本执行完毕，退出码: {}", exitCode);
             if (exitCode == 0) {
                 ObjectMapper mapper = new ObjectMapper();
                 fontVersion.setValueField(String.valueOf(Integer.parseInt(fontVersion.getValueField()) + 1));
@@ -183,7 +186,7 @@ public class ObfuscateFontOTF {
                         ));
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("执行字体处理失败", e);
         }
     }
 
@@ -212,15 +215,15 @@ public class ObfuscateFontOTF {
                     new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
                 String line;
                 while ((line = reader.readLine()) != null) {
-                    System.out.println("[Python] " + line);
+                    log.info("[Python] {}", line);
                 }
             }
 
             int exitCode = process.waitFor();
-            System.out.println("Python 脚本执行完毕，退出码: " + exitCode);
+            log.info("Python 脚本执行完毕，退出码: {}", exitCode);
 
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("执行Python脚本失败", e);
         }
     }
 }

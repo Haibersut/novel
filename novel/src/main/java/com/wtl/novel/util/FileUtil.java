@@ -1,5 +1,8 @@
 package com.wtl.novel.util;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -10,6 +13,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class FileUtil {
+
+    private static final Logger log = LoggerFactory.getLogger(FileUtil.class);
     public static String getFileExtension(String fileName) {
         if (fileName == null || fileName.isEmpty()) {
             return null;
@@ -46,7 +51,7 @@ public class FileUtil {
     public static void deleteFolder(File folder) {
         // 如果文件夹不存在，直接返回
         if (!folder.exists()) {
-            System.out.println("文件夹不存在: " + folder.getAbsolutePath());
+            log.warn("文件夹不存在: {}", folder.getAbsolutePath());
             return;
         }
 
@@ -60,16 +65,16 @@ public class FileUtil {
                 }
                 // 删除文件或空文件夹
                 if (!file.delete()) {
-                    System.out.println("无法删除: " + file.getAbsolutePath());
+                    log.warn("无法删除: {}", file.getAbsolutePath());
                 }
             }
         }
 
         // 删除空文件夹
         if (!folder.delete()) {
-            System.out.println("无法删除文件夹: " + folder.getAbsolutePath());
+            log.error("无法删除文件夹: {}", folder.getAbsolutePath());
         } else {
-            System.out.println("已删除文件夹: " + folder.getAbsolutePath());
+            log.info("已删除文件夹: {}", folder.getAbsolutePath());
         }
     }
 
@@ -138,7 +143,7 @@ public class FileUtil {
 
         // 检查目录是否存在且是目录
         if (!directory.exists() || !directory.isDirectory()) {
-            System.out.println("指定路径不存在或不是目录: " + directoryPath);
+            log.warn("指定路径不存在或不是目录: {}", directoryPath);
             return new File[0];
         }
 
@@ -161,7 +166,7 @@ public class FileUtil {
 
         // 如果没有任何txt文件，返回空数组
         if (txtFiles == null || txtFiles.length == 0) {
-            System.out.println("目录下没有txt文件: " + directoryPath);
+            log.info("目录下没有txt文件: {}", directoryPath);
             return new File[0];
         }
 

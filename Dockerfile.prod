@@ -46,6 +46,11 @@ COPY --from=backend-builder --chown=appuser:appuser /app/target/dependency/BOOT-
 COPY --from=backend-builder --chown=appuser:appuser /app/target/dependency/META-INF /app/META-INF
 COPY --from=backend-builder --chown=appuser:appuser /app/target/dependency/BOOT-INF/classes /app
 
+RUN mkdir -p /app/logs && \
+    mkdir -p /app/tmp && \
+    mkdir -p /app/file && \
+    chown -R appuser:appuser /app
+
 USER appuser
 
 EXPOSE 8081

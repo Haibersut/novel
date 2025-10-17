@@ -1,11 +1,15 @@
 package com.wtl.novel.util;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.BufferedReader;
 import java.nio.file.*;
 import java.sql.*;
 
 public class UpdateNovelFromFile {
+
+    private static final Logger log = LoggerFactory.getLogger(UpdateNovelFromFile.class);
 
     /* ========== 配置 ========== */
     private static final Path INPUT_FILE = Paths.get("novelpia_result.csv"); // 输出文件
@@ -56,9 +60,9 @@ public class UpdateNovelFromFile {
             ps.executeBatch();
             conn.commit();
 
-            System.out.println("全部更新完成，共 " + count + " 条");
+            log.info("全部更新完成，共 {} 条", count);
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("更新数据失败", e);
         }
     }
 }

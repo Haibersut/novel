@@ -25,7 +25,6 @@ COPY --from=frontend-builder /frontend/dist/ ./src/main/resources/static/
 
 RUN mvn clean package -DskipTests -Pdev
 
-# 运行环境构建
 FROM eclipse-temurin:17-jdk
 
 WORKDIR /app
@@ -34,7 +33,10 @@ RUN groupadd -r appuser && useradd -r -g appuser appuser
 
 COPY --from=backend-builder /app/target/*.jar app.jar
 
-RUN chown -R appuser:appuser /app
+RUN mkdir -p /app/logs && \
+    mkdir -p /app/tmp && \
+    mkdir -p /app/file && \
+    chown -R appuser:appuser /app
 
 USER appuser
 

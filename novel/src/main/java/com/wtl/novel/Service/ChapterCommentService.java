@@ -46,8 +46,8 @@ public class ChapterCommentService {
         comment.setNovelId(chapter.getNovelId());
         comment.setCreatedAt(LocalDateTime.now());
         ChapterComment save = chapterCommentRepository.save(comment);
-        User byEmail = userRepository.findByEmail(save.getReplyTo());
-        if (save.getReplyTo() != null && byEmail.getId() - save.getUserId() != 0) {
+        User byEmail = save.getReplyTo() != null ? userRepository.findByEmail(save.getReplyTo()) : null;
+        if (save.getReplyTo() != null && byEmail != null && byEmail.getId() - save.getUserId() != 0) {
             Message message = new Message();
             message.setTextNum(String.valueOf(comment.getTextNum()));
             message.setPostId(comment.getChapterId());

@@ -1,11 +1,16 @@
 package com.wtl.novel.util;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.Enumeration;
 import java.util.zip.*;
 
 public class ZipExtractor {
+
+    private static final Logger log = LoggerFactory.getLogger(ZipExtractor.class);
 
     public static boolean extractZip(String zipFilePath, String outputDir) {
         try (ZipFile zipFile = new ZipFile(zipFilePath, StandardCharsets.UTF_8)) {
@@ -41,7 +46,7 @@ public class ZipExtractor {
             }
             return true;
         } catch (IOException e) {
-            System.err.println("解压 ZIP 文件失败: " + e.getMessage());
+            log.error("解压 ZIP 文件失败: {}", zipFilePath, e);
             return false;
         }
     }
@@ -62,9 +67,9 @@ public class ZipExtractor {
 
         boolean success = extractZip(zipFilePath, outputDir);
         if (success) {
-            System.out.println("ZIP 文件解压成功！");
+            log.info("ZIP 文件解压成功！");
         } else {
-            System.out.println("ZIP 文件解压失败！");
+            log.error("ZIP 文件解压失败！");
         }
     }
 }

@@ -53,13 +53,15 @@ public class DatabaseConnectionUtil {
                     String dbPassword = System.getenv("PRIMARY_DB_PASSWORD");
 
                     if (dbUrl == null || dbUrl.isEmpty()) {
-                        dbUrl = "jdbc:mariadb://localhost:3306/novel?allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=UTC";
+                        throw new IllegalStateException(
+                            "PRIMARY_DB_URL 环境变量未配置！请确保设置了数据库连接信息。\n"
+                        );
                     }
                     if (dbUser == null) {
-                        dbUser = "";
+                        throw new IllegalStateException("PRIMARY_DB_USERNAME 环境变量未配置！");
                     }
                     if (dbPassword == null) {
-                        dbPassword = "";
+                        throw new IllegalStateException("PRIMARY_DB_PASSWORD 环境变量未配置！");
                     }
 
                     primaryDataSource = createDataSource(dbUrl, dbUser, dbPassword, "PrimaryPool");
@@ -81,13 +83,15 @@ public class DatabaseConnectionUtil {
                     String dbPassword = System.getenv("SECONDARY_DB_PASSWORD");
 
                     if (dbUrl == null || dbUrl.isEmpty()) {
-                        dbUrl = "jdbc:mariadb://localhost:3306/novel?allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=UTC";
+                        throw new IllegalStateException(
+                            "SECONDARY_DB_URL 环境变量未配置！请确保设置了数据库连接信息。\n"
+                        );
                     }
                     if (dbUser == null) {
-                        dbUser = "";
+                        throw new IllegalStateException("SECONDARY_DB_USERNAME 环境变量未配置！");
                     }
                     if (dbPassword == null) {
-                        dbPassword = "";
+                        throw new IllegalStateException("SECONDARY_DB_PASSWORD 环境变量未配置！");
                     }
 
                     secondaryDataSource = createDataSource(dbUrl, dbUser, dbPassword, "SecondaryPool");
@@ -106,9 +110,9 @@ public class DatabaseConnectionUtil {
         config.setPassword(password);
         config.setPoolName(poolName);
         
-        // 连接池大小配置
-        config.setMaximumPoolSize(10);
-        config.setMinimumIdle(2);
+        // 连接池配置
+        config.setMaximumPoolSize(5);
+        config.setMinimumIdle(1);
         
         // 连接超时配置
         config.setConnectionTimeout(30000);
