@@ -1,0 +1,66 @@
+# 前端构建
+FROM node:18-alpine AS frontend-builder
+
+WORKDIR /frontend
+
+COPY free-novel-web/package*.json ./
+
+RUN npm install --registry=https://registry.npmmirror.com
+
+COPY free-novel-web/ ./
+
+RUN npm run build
+
+# 服务端构建
+FROM maven:3.9-eclipse-temurin-17-alpine AS backend-builder
+
+WORKDIR /app
+
+COPY novel/pom.xml ./
+
+RUN mvn dependency:go-offline -B
+
+COPY novel/src ./src
+
+RUN mkdir -p src/main/resources/static
+COPY --from=frontend-builder /frontend/dist/ ./src/main/resources/static/
+
+RUN mvn clean package -DskipTests -Pprod
+
+RUN mkdir -p target/dependency && \
+    cd target/dependency && \
+    jar -xf ../*.jar
+
+FROM eclipse-temurin:17-jre-alpine
+
+RUN apk add --no-cache curl tzdata && \
+    cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && \
+    echo "Asia/Shanghai" > /etc/timezone && \
+    apk del tzdata
+
+WORKDIR /app
+
+RUN addgroup -S appuser && adduser -S appuser -G appuser
+
+COPY --from=backend-builder --chown=appuser:appuser /app/target/dependency/BOOT-INF/lib /app/lib
+COPY --from=backend-builder --chown=appuser:appuser /app/target/dependency/META-INF /app/META-INF
+COPY --from=backend-builder --chown=appuser:appuser /app/target/dependency/BOOT-INF/classes /app
+
+USER appuser
+
+EXPOSE 8080
+
+HEALTHCHECK --interval=30s --timeout=3s --start-period=60s --retries=3 \
+  CMD curl -f http://localhost:8080/actuator/health || exit 1
+
+ENV JAVA_OPTS="-Xms512m -Xmx2048m \
+    -XX:+UseG1GC \
+    -XX:MaxGCPauseMillis=200 \
+    -XX:+UseStringDeduplication \
+    -XX:+OptimizeStringConcat \
+    -Djava.security.egd=file:/dev/./urandom \
+    -Dspring.profiles.active=prod \
+    -XX:+HeapDumpOnOutOfMemoryError \
+    -XX:HeapDumpPath=/app/logs/heapdump.hprof"
+
+ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -cp /app:/app/lib/* com.wtl.novel.NovelApplication"]

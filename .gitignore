@@ -1,0 +1,5 @@
+# Ignore target directory
+novel/target
+
+novel/.vscode
+novel/.mvn

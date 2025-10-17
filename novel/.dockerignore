@@ -1,0 +1,18 @@
+# .dockerignore - 排除不需要的文件以加快构建速度
+.git
+.gitignore
+.idea
+*.iml
+target
+*.log
+.DS_Store
+.env
+docker-compose*.yml
+Dockerfile*
+README.md
+*.md
+.vscode
+node_modules
+.mvn
+mvnw
+mvnw.cmd
