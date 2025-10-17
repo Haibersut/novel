@@ -83,8 +83,8 @@ public class PostCommentService {
     public PostComment createComment(PostComment comment) {
         PostComment save = postCommentRepository.save(comment);
         Post post = postRepository.getReferenceById(save.getPostId());
-        User byEmail = userRepository.findByEmail(save.getReplyTo());
-        if (save.getReplyTo() != null && byEmail.getId() - save.getUserId() != 0) {
+        User byEmail = save.getReplyTo() != null ? userRepository.findByEmail(save.getReplyTo()) : null;
+        if (save.getReplyTo() != null && byEmail != null && byEmail.getId() - save.getUserId() != 0) {
             Message message = new Message();
             message.setTextNum("");
             message.setPostId(comment.getPostId());
@@ -96,7 +96,9 @@ public class PostCommentService {
             message.setUserId(byEmail.getId());
             message.setRead(false);
             User userById = userRepository.findUserById(save.getUserId());
-            message.setUsername(userById.getEmail());
+            if (userById != null) {
+                message.setUsername(userById.getEmail());
+            }
             messageRepository.save(message);
         } else if (post.getUserId() - save.getUserId() != 0){
             Message message = new Message();

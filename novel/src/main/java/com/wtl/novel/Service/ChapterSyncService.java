@@ -7,6 +7,8 @@ import com.wtl.novel.repository.ChapterSyncRepository;
 import com.wtl.novel.repository.DictionaryRepository;
 import com.wtl.novel.scalingUp.entity.ChapterScalingUpOne;
 import com.wtl.novel.scalingUp.repository.ChapterScalingUpOneRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -20,6 +22,8 @@ import java.util.stream.Collectors;
 
 @Service
 public class ChapterSyncService {
+
+    private static final Logger log = LoggerFactory.getLogger(ChapterSyncService.class);
 
     @Autowired
     private  ChapterSyncRepository chapterSyncRepository;
@@ -40,24 +44,23 @@ public class ChapterSyncService {
         try {
             boolean runScalingUp = Boolean.parseBoolean(dictionaryRepository.findDictionaryByKeyFieldAndIsDeletedFalse("RunScalingUp").getValueField());
             if (!runScalingUp) {
-                System.out.println("已经关闭同步");
+                log.info("已经关闭同步");
                 return;
             }
             // 查询未同步的章节
             List<ChapterSync> list = chapterSyncRepository.findUnSyncedAndLock();
             if (list.isEmpty()) {
-                System.out.println("没有发现未同步章节");
+                log.info("没有发现未同步章节");
                 return;
             }
 
-            System.out.println("发现 " + list.size() + " 条未同步章节，开始重试...");
+            log.info("发现 {} 条未同步章节，开始重试...", list.size());
 
             for (ChapterSync cs : list) {
                 processSingleChapterWithoutTransaction(cs);
             }
         } catch (Exception e) {
-            System.out.println("查询未同步章节失败");
-            e.printStackTrace();
+            log.error("查询未同步章节失败", e);
         }
     }
 
@@ -70,7 +73,7 @@ public class ChapterSyncService {
         try {
             Chapter chapter = chapterRepository.findById(cs.getChapterId()).orElse(null);
             if (chapter == null) {
-                System.out.println("chapterId=" + cs.getChapterId() + " 已不存在，跳过");
+                log.warn("chapterId={} 已不存在，跳过", cs.getChapterId());
                 return;
             }
 
@@ -78,9 +81,9 @@ public class ChapterSyncService {
             try {
                 ChapterScalingUpOne scalingUpOne = new ChapterScalingUpOne(chapter);
                 chapterScalingUpOneRepository.save(scalingUpOne);
-                System.out.println("保存到 scalingUp 库成功，chapterId=" + chapter.getId());
+                log.info("保存到 scalingUp 库成功，chapterId={}", chapter.getId());
             } catch (Exception e) {
-                System.out.println("保存到 scalingUp 库失败，尝试检查记录状态，chapterId=" + chapter.getId());
+                log.warn("保存到 scalingUp 库失败，尝试检查记录状态，chapterId={}", chapter.getId());
                 // 检查记录是否已存在
                 if (!chapterScalingUpOneRepository.existsById(chapter.getId())) {
                     throw e;
@@ -95,11 +98,10 @@ public class ChapterSyncService {
             cs.setSynced(true);
             chapterSyncRepository.save(cs);
 
-            System.out.println("章节同步成功，chapterId=" + cs.getChapterId());
+            log.info("章节同步成功，chapterId={}", cs.getChapterId());
 
         } catch (Exception e) {
-            System.out.println("处理章节失败，进行补偿，chapterId=" + cs.getChapterId());
-            e.printStackTrace();
+            log.error("处理章节失败，进行补偿，chapterId={}", cs.getChapterId(), e);
             compensateChapterSync(cs.getChapterId());
         }
     }
@@ -125,15 +127,14 @@ public class ChapterSyncService {
                     if (!cs.getSynced()) {
                         cs.setSynced(true);
                         chapterSyncRepository.save(cs);
-                        System.out.println("补偿：修正同步标记，chapterId=" + chapterId);
+                        log.info("补偿：修正同步标记，chapterId={}", chapterId);
                     }
                 }
             }
             // 3. 如果 scalingUp 库中不存在，保持原状，下次定时任务会重试
 
         } catch (Exception compEx) {
-            System.out.println("补偿逻辑执行失败，chapterId=" + chapterId);
-            compEx.printStackTrace();
+            log.error("补偿逻辑执行失败，chapterId={}", chapterId, compEx);
         }
     }
 
@@ -161,7 +162,7 @@ public class ChapterSyncService {
         }catch (Exception e) {
 //            chapterSync.setSynced(false);
 //            chapterSyncRepository.save(chapterSync);
-            e.printStackTrace();
+            log.error("保存章节同步信息失败", e);
         }
     }
 
@@ -207,7 +208,7 @@ public class ChapterSyncService {
             chapterSyncRepository.saveAll(existsList);
             chapterSyncRepository.saveAll(notExistsList);
         }catch (Exception e) {
-            e.printStackTrace();
+            log.error("批量保存章节同步信息失败", e);
         }
     }
 }

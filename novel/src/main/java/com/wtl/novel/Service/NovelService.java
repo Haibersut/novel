@@ -187,9 +187,19 @@ public class NovelService {
     public NovelCTO findNovelById(Long id, HttpServletRequest httpRequest) {
         Novel byIdAndIsDeletedFalse = novelRepository.findByIdAndIsDeletedFalse(id);
         try {
-            String[] authorizationInfo = httpRequest.getHeader("Authorization").split(";");
+            String authHeader = httpRequest.getHeader("Authorization");
+            if (authHeader == null || authHeader.isEmpty()) {
+                return new NovelCTO(byIdAndIsDeletedFalse, null, null);
+            }
+            String[] authorizationInfo = authHeader.split(";");
+            if (authorizationInfo.length == 0) {
+                return new NovelCTO(byIdAndIsDeletedFalse, null, null);
+            }
             String authorizationHeader = authorizationInfo[0];
             Credential credential = credentialService.findByToken(authorizationHeader);
+            if (credential == null || credential.getUser() == null) {
+                return new NovelCTO(byIdAndIsDeletedFalse, null, null);
+            }
             ReadingRecord byUserIdAndNovelId = readingRecordRepository.findByUserIdAndNovelId(credential.getUser().getId(), id);
             String name = favoriteService.getFavoriteGroupNameByObjectId(credential.getUser().getId(), id);
             NovelCTO novelCTO = new NovelCTO(byIdAndIsDeletedFalse, byUserIdAndNovelId.getLastChapter(), byUserIdAndNovelId.getLastChapterId());

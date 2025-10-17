@@ -29,9 +29,19 @@ public class UserTagFilterController {
      */
     @GetMapping("/getFilterTag")
     public ResponseEntity<List<UserTagFilter>> getFilterTag(HttpServletRequest request) {
-        String[] authorizationInfo = request.getHeader("Authorization").split(";");
+        String authHeader = request.getHeader("Authorization");
+        if (authHeader == null || authHeader.isEmpty()) {
+            return ResponseEntity.status(401).body(null);
+        }
+        String[] authorizationInfo = authHeader.split(";");
+        if (authorizationInfo.length == 0) {
+            return ResponseEntity.status(401).body(null);
+        }
         String authorizationHeader = authorizationInfo[0];
         Credential credential = credentialService.findByToken(authorizationHeader);
+        if (credential == null || credential.getUser() == null) {
+            return ResponseEntity.status(401).body(null);
+        }
         List<UserTagFilter> userTagFilters = service.getFilterTag(credential.getUser().getId());
         return ResponseEntity.ok(userTagFilters);
     }
@@ -39,9 +49,19 @@ public class UserTagFilterController {
     @GetMapping("/filterTag/{id}")
     public void filterTag(@PathVariable("id") Long id,
                                                          HttpServletRequest request) {
-        String[] authorizationInfo = request.getHeader("Authorization").split(";");
+        String authHeader = request.getHeader("Authorization");
+        if (authHeader == null || authHeader.isEmpty()) {
+            return;
+        }
+        String[] authorizationInfo = authHeader.split(";");
+        if (authorizationInfo.length == 0) {
+            return;
+        }
         String authorizationHeader = authorizationInfo[0];
         Credential credential = credentialService.findByToken(authorizationHeader);
+        if (credential == null || credential.getUser() == null) {
+            return;
+        }
         service.filterTag(id,credential.getUser().getId());
     }
 }

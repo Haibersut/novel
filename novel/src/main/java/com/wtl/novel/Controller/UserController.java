@@ -40,9 +40,19 @@ public class UserController {
 
     @GetMapping("/getUserDetail")
     public UserCTO getUserDetail(HttpServletRequest httpRequest) {
-        String[] authorizationInfo = httpRequest.getHeader("Authorization").split(";");
+        String authHeader = httpRequest.getHeader("Authorization");
+        if (authHeader == null || authHeader.isEmpty()) {
+            return null;
+        }
+        String[] authorizationInfo = authHeader.split(";");
+        if (authorizationInfo.length == 0) {
+            return null;
+        }
         String authorizationHeader = authorizationInfo[0];
         Credential credential = credentialService.findByToken(authorizationHeader);
+        if (credential == null || credential.getUser() == null) {
+            return null;
+        }
         return new UserCTO(credential.getUser());
     }
 
@@ -61,27 +71,57 @@ public class UserController {
     @PostMapping("/rename")
     public String rename(@RequestBody LoginRequestCTO request,
                          HttpServletRequest httpRequest) {
-        String[] authorizationInfo = httpRequest.getHeader("Authorization").split(";");
+        String authHeader = httpRequest.getHeader("Authorization");
+        if (authHeader == null || authHeader.isEmpty()) {
+            return null;
+        }
+        String[] authorizationInfo = authHeader.split(";");
+        if (authorizationInfo.length == 0) {
+            return null;
+        }
         String authorizationHeader = authorizationInfo[0];
         Credential credential = credentialService.findByToken(authorizationHeader);
+        if (credential == null || credential.getUser() == null) {
+            return null;
+        }
         return userService.rename(request.getEmail(),credential.getUser().getId());
     }
 
 
     @GetMapping("/getPoint")
     public Long getPoint( HttpServletRequest httpRequest) {
-        String[] authorizationInfo = httpRequest.getHeader("Authorization").split(";");
+        String authHeader = httpRequest.getHeader("Authorization");
+        if (authHeader == null || authHeader.isEmpty()) {
+            return null;
+        }
+        String[] authorizationInfo = authHeader.split(";");
+        if (authorizationInfo.length == 0) {
+            return null;
+        }
         String authorizationHeader = authorizationInfo[0];
         Credential credential = credentialService.findByToken(authorizationHeader);
+        if (credential == null || credential.getUser() == null) {
+            return null;
+        }
         return userService.getUserPoint(credential.getUser().getId());
     }
 
     @PostMapping("/modifyPassword")
     public int modifyPassword(@RequestBody LoginRequestCTO request,
                                   HttpServletRequest httpRequest) {
-        String[] authorizationInfo = httpRequest.getHeader("Authorization").split(";");
+        String authHeader = httpRequest.getHeader("Authorization");
+        if (authHeader == null || authHeader.isEmpty()) {
+            return -1;
+        }
+        String[] authorizationInfo = authHeader.split(";");
+        if (authorizationInfo.length == 0) {
+            return -1;
+        }
         String authorizationHeader = authorizationInfo[0];
         Credential credential = credentialService.findByToken(authorizationHeader);
+        if (credential == null || credential.getUser() == null) {
+            return -1;
+        }
         return userService.modifyPassword(request.getPassword(), credential.getUser());
     }
 
@@ -95,9 +135,19 @@ public class UserController {
 
     @GetMapping("/getCode")
     public List<InvitationCode> getCode( HttpServletRequest httpRequest) {
-        String[] authorizationInfo = httpRequest.getHeader("Authorization").split(";");
+        String authHeader = httpRequest.getHeader("Authorization");
+        if (authHeader == null || authHeader.isEmpty()) {
+            return null;
+        }
+        String[] authorizationInfo = authHeader.split(";");
+        if (authorizationInfo.length == 0) {
+            return null;
+        }
         String authorizationHeader = authorizationInfo[0];
         Credential credential = credentialService.findByToken(authorizationHeader);
+        if (credential == null || credential.getUser() == null) {
+            return null;
+        }
         return invitationCodeService.getInvitationCode(credential.getUser().getId());
     }
 
@@ -107,9 +157,19 @@ public class UserController {
             @PathVariable Long points,
             HttpServletRequest httpRequest) {
         try {
-            String[] authorizationInfo = httpRequest.getHeader("Authorization").split(";");
+            String authHeader = httpRequest.getHeader("Authorization");
+            if (authHeader == null || authHeader.isEmpty()) {
+                return ResponseEntity.status(401).body("未授权");
+            }
+            String[] authorizationInfo = authHeader.split(";");
+            if (authorizationInfo.length == 0) {
+                return ResponseEntity.status(401).body("未授权");
+            }
             String authorizationHeader = authorizationInfo[0];
             Credential credential = credentialService.findByToken(authorizationHeader);
+            if (credential == null || credential.getUser() == null) {
+                return ResponseEntity.status(401).body("未授权");
+            }
             // 调用服务层处理打赏逻辑
             boolean success = userService.rewardPoints(postId, credential.getUser().getId(), points);
             if (success) {

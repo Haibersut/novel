@@ -43,14 +43,28 @@ public class UserService {
     private CredentialService credentialService;
 
     public User getUserByToken(HttpServletRequest httpRequest) {
-        String[] authorizationInfo = httpRequest.getHeader("Authorization").split(";");
+        String authHeader = httpRequest.getHeader("Authorization");
+        if (authHeader == null || authHeader.isEmpty()) {
+            return null;
+        }
+        String[] authorizationInfo = authHeader.split(";");
+        if (authorizationInfo.length == 0) {
+            return null;
+        }
         String authorizationHeader = authorizationInfo[0];
         Credential credential = credentialService.findByToken(authorizationHeader);
-        return credential.getUser();
+        return credential != null ? credential.getUser() : null;
     }
 
     public Credential getCredentialByToken(HttpServletRequest httpRequest) {
-        String[] authorizationInfo = httpRequest.getHeader("Authorization").split(";");
+        String authHeader = httpRequest.getHeader("Authorization");
+        if (authHeader == null || authHeader.isEmpty()) {
+            return null;
+        }
+        String[] authorizationInfo = authHeader.split(";");
+        if (authorizationInfo.length == 0) {
+            return null;
+        }
         String authorizationHeader = authorizationInfo[0];
         return credentialService.findByToken(authorizationHeader);
     }

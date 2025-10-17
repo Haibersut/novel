@@ -11,6 +11,8 @@ import com.wtl.novel.repository.NovelRepository;
 import com.wtl.novel.translator.Novelpia;
 import com.wtl.novel.translator.Syosetu;
 import jakarta.servlet.http.HttpServletRequest;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -25,6 +27,8 @@ import java.util.concurrent.locks.ReentrantLock;
 @RestController
 @RequestMapping("/api/novelPia")
 public class NovelPiaController {
+
+    private static final Logger log = LoggerFactory.getLogger(NovelPiaController.class);
 
     private final ConcurrentHashMap<String, Lock> keywordLocks = new ConcurrentHashMap<>();
 
@@ -71,7 +75,7 @@ public class NovelPiaController {
 
     @GetMapping("/executeDownloadOne/{novelId}")
     public String executeDownloadOne(@PathVariable Long novelId) {
-        System.out.println(novelId);
+        log.info("执行单个小说下载，novelId: {}", novelId);
 
         NovelDownloadLimit downloadLimit = novelDownloadLimitRepository.findById(novelId).orElse(null);
         if (downloadLimit != null) {
@@ -154,7 +158,14 @@ public class NovelPiaController {
         lock.lock();
         try {
             // 检查是否已经有任务在处理该 keyword
-            String[] authorizationInfo = httpRequest.getHeader("Authorization").split(";");
+            String authHeader = httpRequest.getHeader("Authorization");
+            if (authHeader == null || authHeader.isEmpty()) {
+                return "用户未登录！";
+            }
+            String[] authorizationInfo = authHeader.split(";");
+            if (authorizationInfo.length == 0) {
+                return "用户未登录！";
+            }
             String authorizationHeader = authorizationInfo[0];
             Credential credential = credentialService.findByToken(authorizationHeader);
             if (credential == null || credential.getExpiredAt().isBefore(LocalDateTime.now())) {

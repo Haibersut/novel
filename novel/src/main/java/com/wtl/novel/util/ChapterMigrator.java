@@ -18,7 +18,12 @@ import java.nio.charset.StandardCharsets;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 public class ChapterMigrator {
+
+    private static final Logger log = LoggerFactory.getLogger(ChapterMigrator.class);
     // 数据库配置
     private static final String JDBC_URL = "jdbc:mysql://*.*.*.*:3306/novel";
     private static final String USER = "";
@@ -96,11 +101,10 @@ public class ChapterMigrator {
                             StandardOpenOption.APPEND);
                     count++;
 
-                    System.out.printf("已导出: %s (%d 字节)%n",
-                            outputPath, content.length());
+                    log.info("已导出: {} ({} 字节)", outputPath, content.length());
                 }
 
-                System.out.printf("共导出 %d 个章节到目录: %s%n", count, outputPath.toAbsolutePath());
+                log.info("共导出 {} 个章节到目录: {}", count, outputPath.toAbsolutePath());
             }
         }
     }
@@ -188,8 +192,7 @@ public class ChapterMigrator {
                 // 替换原link内容
                 insertion.setLink(newImgTag);
             } catch (Exception e) {
-                e.printStackTrace();
-                System.out.println(insertion.getLink());
+                log.error("处理图片链接失败: {}", insertion.getLink(), e);
                 // 出错时保留原链接
                 insertion.setLink(insertion.getLink());
             }
@@ -221,7 +224,7 @@ public class ChapterMigrator {
 
         // 检查文件是否已存在
         if (file.exists()) {
-            System.out.println("文件已存在，跳过下载: " + filePath);
+            log.debug("文件已存在，跳过下载: {}", filePath);
             return filePath; // 直接返回，不执行后续下载
         }
 
@@ -236,7 +239,7 @@ public class ChapterMigrator {
         // 下载文件
         try (InputStream in = url.openStream()) {
             Files.copy(in, Paths.get(filePath), StandardCopyOption.REPLACE_EXISTING);
-            System.out.println("文件下载完成: " + filePath);
+            log.info("文件下载完成: {}", filePath);
         }
         return filePath;
     }
@@ -321,7 +324,7 @@ public class ChapterMigrator {
     private static void migrateChapterData() throws Exception {
         // 获取总记录数
         long totalRecords = getTotalRecords();
-        System.out.println("总记录数: " + totalRecords);
+        log.info("总记录数: {}", totalRecords);
 
         // 使用单线程顺序处理
         long processed = 0;
@@ -332,16 +335,15 @@ public class ChapterMigrator {
 
             // 如果页面处理0条记录，提前退出
             if (pageProcessed == 0) {
-                System.out.println("没有更多记录可处理");
+                log.info("没有更多记录可处理");
                 break;
             }
 
             processed += pageProcessed;
-            System.out.printf("进度: %.1f%% (%d/%d)%n",
-                    processed * 100.0 / totalRecords, processed, totalRecords);
+            log.info("进度: {:.1f}% ({}/{})", processed * 100.0 / totalRecords, processed, totalRecords);
         }
 
-        System.out.println("迁移完成! 共处理 " + processed + " 条记录");
+        log.info("迁移完成! 共处理 {} 条记录", processed);
     }
 
     private static int processPage(long startId, int pageSize) {

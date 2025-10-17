@@ -43,6 +43,7 @@ services:
     volumes:
       - ./app/tmp:/app/tmp
       - ./app/file:/app/file
+      - ./app/logs:/app/logs
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8081/actuator/health"]

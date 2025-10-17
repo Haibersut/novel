@@ -72,7 +72,14 @@ public class SyosetuController {
         lock.lock();
         try {
             // 检查是否已经有任务在处理该 keyword
-            String[] authorizationInfo = httpRequest.getHeader("Authorization").split(";");
+            String authHeader = httpRequest.getHeader("Authorization");
+            if (authHeader == null || authHeader.isEmpty()) {
+                return "用户未登录！";
+            }
+            String[] authorizationInfo = authHeader.split(";");
+            if (authorizationInfo.length == 0) {
+                return "用户未登录！";
+            }
             String authorizationHeader = authorizationInfo[0];
             Credential credential = credentialService.findByToken(authorizationHeader);
             if (credential == null || credential.getExpiredAt().isBefore(LocalDateTime.now())) {

@@ -7,6 +7,8 @@ import com.wtl.novel.entity.Credential;
 import jakarta.servlet.*;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
@@ -16,6 +18,8 @@ import static com.wtl.novel.util.URLMatcher.matches;
 
 @Component
 public class RequestFilter implements Filter {
+
+    private static final Logger log = LoggerFactory.getLogger(RequestFilter.class);
 
     @Autowired
     private CredentialService credentialService;
@@ -57,7 +61,15 @@ public class RequestFilter implements Filter {
             }
 
             String authHeader = httpRequest.getHeader("Authorization");
+            if (authHeader == null || authHeader.isEmpty()) {
+                httpResponse.sendError(HttpStatus.UNAUTHORIZED.value(), "缺少 Authorization header");
+                return;
+            }
             String[] authorizationInfo = authHeader.split(";");
+            if (authorizationInfo.length == 0) {
+                httpResponse.sendError(HttpStatus.UNAUTHORIZED.value(), "无效的 Authorization 格式");
+                return;
+            }
             String token = authorizationInfo[0];
 
             Credential credential = credentialService.findByToken(token);
@@ -73,7 +85,7 @@ public class RequestFilter implements Filter {
 
             chain.doFilter(request, response);
         } catch (Exception e) {
-            System.out.println(e.getMessage());
+            log.error("请求过滤器处理异常", e);
         }
     }
 
@@ -96,7 +108,7 @@ public class RequestFilter implements Filter {
         }
 
         String remoteAddr = httpRequest.getRemoteAddr();
-        System.out.println("[RequestFilter] Actuator访问 - URI: " + requestURI + ", RemoteAddr: " + remoteAddr);
+        log.info("Actuator访问 - URI: {}, RemoteAddr: {}", requestURI, remoteAddr);
         
         if (remoteAddr != null && (remoteAddr.equals("127.0.0.1") ||
                 remoteAddr.equals("0:0:0:0:0:0:0:1") ||
@@ -110,7 +122,7 @@ public class RequestFilter implements Filter {
                 httpResponse.getWriter().write("");
                 httpResponse.getWriter().flush();
             } catch (Exception e) {
-                System.out.println("Error writing response: " + e.getMessage());
+                log.error("写入响应失败", e);
             }
             return true; // 返回true表示已经处理了请求
         }
@@ -122,7 +134,7 @@ public class RequestFilter implements Filter {
             try {
                 httpResponse.sendError(HttpStatus.UNAUTHORIZED.value(), "缺少 Authorization header");
             } catch (Exception e) {
-                System.out.println("Error sending error response: " + e.getMessage());
+                log.error("发送错误响应失败", e);
             }
             return false;
         }
@@ -132,7 +144,7 @@ public class RequestFilter implements Filter {
             try {
                 httpResponse.sendError(HttpStatus.UNAUTHORIZED.value(), "无效的 Authorization 格式");
             } catch (Exception e) {
-                System.out.println("Error sending error response: " + e.getMessage());
+                log.error("发送错误响应失败", e);
             }
             return false;
         }

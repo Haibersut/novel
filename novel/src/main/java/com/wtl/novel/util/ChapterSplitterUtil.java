@@ -1,5 +1,8 @@
 package com.wtl.novel.util;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -11,6 +14,8 @@ import java.util.regex.Pattern;
 
 public class ChapterSplitterUtil {
 
+    private static final Logger log = LoggerFactory.getLogger(ChapterSplitterUtil.class);
+
     // 配置参数
     private static final int CHAPTER_TARGET_LENGTH = 5000; // 每章节目标字数
     private static final int MAX_CHAPTER_LENGTH = 10000;  // 单章节最大字数（用于进一步分割）
@@ -19,7 +24,7 @@ public class ChapterSplitterUtil {
         // 创建输出目录
         File dir = new File(outputDir);
         if (!dir.exists() && !dir.mkdirs()) {
-            System.err.println("无法创建输出目录: " + outputDir);
+            log.error("无法创建输出目录: {}", outputDir);
             return Collections.emptyList();
         }
 
@@ -33,7 +38,7 @@ public class ChapterSplitterUtil {
                 allLines.add(line);
             }
         } catch (IOException e) {
-            System.err.println("文件读取失败: " + e.getMessage());
+            log.error("文件读取失败: {}", filePath, e);
             return Collections.emptyList();
         }
 
@@ -146,7 +151,7 @@ public class ChapterSplitterUtil {
             }
 
         } catch (IOException e) {
-            System.err.println("保存章节文件失败: " + e.getMessage());
+            log.error("保存章节文件失败", e);
             return null;
         }
         return fileName;

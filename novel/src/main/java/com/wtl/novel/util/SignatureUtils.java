@@ -15,8 +15,12 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class SignatureUtils {
+
+    private static final Logger log = LoggerFactory.getLogger(SignatureUtils.class);
 
     /**
      * 验证签名是否有效
@@ -85,8 +89,7 @@ public class SignatureUtils {
                 dataStr = sortAndSerializeData(objectMapper, data);
             }
         } catch (Exception e) {
-            System.out.println(1);
-            e.printStackTrace();
+            log.error("Failed to serialize params or data", e);
             throw new RuntimeException("Failed to serialize params or data", e);
         }
 

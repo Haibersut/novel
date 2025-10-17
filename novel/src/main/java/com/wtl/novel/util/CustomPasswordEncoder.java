@@ -1,15 +1,19 @@
 package com.wtl.novel.util;
 
 import org.mindrot.jbcrypt.BCrypt;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.regex.Pattern;
 
 public class CustomPasswordEncoder {
 
+    private static final Logger log = LoggerFactory.getLogger(CustomPasswordEncoder.class);
+
     public static void main(String[] args) {
 //        CustomPasswordEncoder encoder = new CustomPasswordEncoder();
-//        System.out.println(encoder.encode("qwerasdf123"));
-        System.out.println(isValid("123_)%dsahdWAS"));
+//        log.info("Encoded password: {}", encoder.encode("qwerasdf123"));
+        log.info("Password valid: {}", isValid("123_)%dsahdWAS"));
     }
     /**
      * 对密码进行加密

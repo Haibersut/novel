@@ -49,14 +49,20 @@ public class UserFeedbackController {
 
         // 认证验证
         String authorization = httpRequest.getHeader("Authorization");
-        if (authorization == null) {
-            return null;
+        if (authorization == null || authorization.isEmpty()) {
+            return ResponseEntity.status(401).body("未授权");
         }
         String[] authorizationInfo = authorization.split(";");
+        if (authorizationInfo.length == 0) {
+            return ResponseEntity.status(401).body("未授权");
+        }
         String authorizationHeader = authorizationInfo[0];
         Credential credential = credentialService.findByToken(authorizationHeader);
         if (credential == null || credential.getExpiredAt().isBefore(LocalDateTime.now())) {
-            return null;
+            return ResponseEntity.status(401).body("未授权");
+        }
+        if (credential.getUser() == null) {
+            return ResponseEntity.status(401).body("未授权");
         }
 
         Long userId = credential.getUser().getId();
