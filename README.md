@@ -33,17 +33,19 @@
 
 #### 1. 拉取镜像
 
-推荐使用开发版(dev)镜像,包含类型安全增强和数据库初始化功能:
+开发版(dev)镜像更大：
 
 ```bash
-docker pull mattgideon/freenovel:v1.0.15-dev
+docker pull mattgideon/freenovel:v1.0.16-dev
 ```
 
-生产版(prod)镜像更小但功能较少:
+生产版(prod)镜像更小:
 
 ```bash
-docker pull mattgideon/freenovel:v1.0.11-prod
+docker pull mattgideon/freenovel:v1.0.16-prod
 ```
+
+目前没什么区别（
 
 #### 2. 准备配置文件
 
