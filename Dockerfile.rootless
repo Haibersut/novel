@@ -40,13 +40,18 @@ RUN apk add --no-cache curl tzdata && \
 
 WORKDIR /app
 
-COPY --from=backend-builder /app/target/dependency/BOOT-INF/lib /app/lib
-COPY --from=backend-builder /app/target/dependency/META-INF /app/META-INF
-COPY --from=backend-builder /app/target/dependency/BOOT-INF/classes /app
+RUN addgroup -S appuser && adduser -S appuser -G appuser
+
+COPY --from=backend-builder --chown=appuser:appuser /app/target/dependency/BOOT-INF/lib /app/lib
+COPY --from=backend-builder --chown=appuser:appuser /app/target/dependency/META-INF /app/META-INF
+COPY --from=backend-builder --chown=appuser:appuser /app/target/dependency/BOOT-INF/classes /app
 
 RUN mkdir -p /app/logs && \
     mkdir -p /app/tmp && \
-    mkdir -p /app/file
+    mkdir -p /app/file && \
+    chown -R appuser:appuser /app
+
+USER appuser
 
 EXPOSE 8081
 

@@ -27,18 +27,15 @@ RUN mvn clean package -DskipTests -Pdev
 
 FROM eclipse-temurin:17-jdk
 
-WORKDIR /app
+RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
 
-RUN groupadd -r appuser && useradd -r -g appuser appuser
+WORKDIR /app
 
 COPY --from=backend-builder /app/target/*.jar app.jar
 
 RUN mkdir -p /app/logs && \
     mkdir -p /app/tmp && \
-    mkdir -p /app/file && \
-    chown -R appuser:appuser /app
-
-USER appuser
+    mkdir -p /app/file
 
 EXPOSE 8081
 

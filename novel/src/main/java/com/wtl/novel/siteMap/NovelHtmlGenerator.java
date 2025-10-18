@@ -1,7 +1,11 @@
 package com.wtl.novel.siteMap;
 
-import com.wtl.novel.util.DatabaseConnectionUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.stereotype.Component;
 
+import javax.sql.DataSource;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
@@ -9,53 +13,94 @@ import java.io.IOException;
 import java.sql.*;
 import java.util.*;
 
+@Component
 public class NovelHtmlGenerator {
 
-    public static void main(String[] args) {
-        Runtime.getRuntime().addShutdownHook(new Thread(DatabaseConnectionUtil::shutdown));
-        
+    private static final Logger log = LoggerFactory.getLogger(NovelHtmlGenerator.class);
+    private static final Random RANDOM = new Random();
+    
+    private final DataSource dataSource;
+
+    public NovelHtmlGenerator(@Qualifier("primaryDataSource") DataSource dataSource) {
+        this.dataSource = dataSource;
+    }
+
+    /**
+     * 执行HTML生成任务
+     */
+    public void execute() {
+        log.info("开始执行小说HTML生成任务");
         Connection connection = null;
         try {
-            connection = DatabaseConnectionUtil.getPrimaryConnection();
-
-            List<Map<String, Object>> novels = getNovels(connection);
-
-            for (Map<String, Object> novel : novels) {
-                Long novelId = (Long) novel.get("id");
-                String novelTitle = (String) novel.get("title");
-
-                System.out.println("处理小说: " + novelId + " - " + novelTitle);
-
-                // 获取章节信息
-                List<Map<String, Object>> chapters = getChaptersByNovelId(connection, novelId);
-
-                // 获取标签信息
-                List<Map<String, Object>> tags = getTagsByNovelId(connection, novelId);
-
-                // 获取第一章内容预览
-                String firstChapterPreview = getFirstChapterContentPreview(connection, novelId);
-                String aaaa = firstChapterPreview.length() > 120 ? firstChapterPreview.substring(0, 120) : firstChapterPreview;;
-                // 生成HTML内容
-                String htmlContent = generateHtmlContent(novel, chapters, tags, aaaa,firstChapterPreview);
-
-                // 保存HTML文件
-                saveHtmlFile(novelId, htmlContent);
+            connection = dataSource.getConnection();
+            if (connection == null) {
+                log.error("无法获取数据库连接");
+                return;
             }
 
-            System.out.println("HTML生成完成！");
+            List<Map<String, Object>> novels = getNovels(connection);
+            if (novels == null || novels.isEmpty()) {
+                log.warn("没有找到小说数据");
+                return;
+            }
+
+            for (Map<String, Object> novel : novels) {
+                try {
+                    Long novelId = (Long) novel.get("id");
+                    String novelTitle = (String) novel.get("title");
+                    
+                    if (novelId == null) {
+                        log.warn("小说ID为空，跳过");
+                        continue;
+                    }
+
+                    log.debug("处理小说: {} - {}", novelId, novelTitle);
+
+                    // 获取章节信息
+                    List<Map<String, Object>> chapters = getChaptersByNovelId(connection, novelId);
+                    if (chapters == null) {
+                        chapters = new ArrayList<>();
+                    }
+
+                    // 获取标签信息
+                    List<Map<String, Object>> tags = getTagsByNovelId(connection, novelId);
+                    if (tags == null) {
+                        tags = new ArrayList<>();
+                    }
+
+                    // 获取第一章内容预览
+                    String firstChapterPreview = getFirstChapterContentPreview(connection, novelId);
+                    if (firstChapterPreview == null || firstChapterPreview.isEmpty()) {
+                        firstChapterPreview = "暂无章节内容";
+                    }
+                    String aaaa = firstChapterPreview.length() > 120 ? firstChapterPreview.substring(0, 120) : firstChapterPreview;
+                    
+                    // 生成HTML内容
+                    String htmlContent = generateHtmlContent(novel, chapters, tags, aaaa, firstChapterPreview);
+
+                    // 保存HTML文件
+                    saveHtmlFile(novelId, htmlContent);
+                } catch (Exception e) {
+                    log.error("处理单个小说时出错: {}", novel.get("id"), e);
+                }
+            }
+
+            log.info("HTML生成完成！");
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("HTML生成任务执行失败", e);
         } finally {
-            try {
-                if (connection != null) connection.close();
-            } catch (SQLException e) {
-                e.printStackTrace();
+            if (connection != null) {
+                try {
+                    connection.close();
+                } catch (SQLException e) {
+                    log.error("关闭数据库连接失败", e);
+                }
             }
         }
     }
 
     // 获取所有小说信息
-    private static List<Map<String, Object>> getNovels(Connection connection) throws SQLException {
+    private List<Map<String, Object>> getNovels(Connection connection) throws SQLException {
         List<Map<String, Object>> result = new ArrayList<>();
         String sql = "SELECT id, title, true_name FROM novel WHERE is_deleted = 0";
 
@@ -75,7 +120,7 @@ public class NovelHtmlGenerator {
     }
 
     // 获取小说章节
-    private static List<Map<String, Object>> getChaptersByNovelId(Connection connection, Long novelId) throws SQLException {
+    private List<Map<String, Object>> getChaptersByNovelId(Connection connection, Long novelId) throws SQLException {
         List<Map<String, Object>> result = new ArrayList<>();
         String sql = "SELECT id,chapter_number, title FROM chapter WHERE novel_id = ? AND is_deleted = 0 ORDER BY chapter_number";
 
@@ -96,7 +141,7 @@ public class NovelHtmlGenerator {
     }
 
     // 获取小说标签
-    private static List<Map<String, Object>> getTagsByNovelId(Connection connection, Long novelId) throws SQLException {
+    private List<Map<String, Object>> getTagsByNovelId(Connection connection, Long novelId) throws SQLException {
         List<Map<String, Object>> result = new ArrayList<>();
         String sql = "SELECT t.name, t.true_name FROM tag t " +
                 "JOIN novel_tag nt ON t.id = nt.tag_id " +
@@ -118,7 +163,7 @@ public class NovelHtmlGenerator {
     }
 
     // 获取小说第一章内容预览（前100个字符）
-    private static String getFirstChapterContentPreview(Connection connection, Long novelId) throws SQLException {
+    private String getFirstChapterContentPreview(Connection connection, Long novelId) throws SQLException {
         String sql = "SELECT content FROM chapter WHERE novel_id = ? AND chapter_number = 1 AND is_deleted = 0";
 
         try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
@@ -138,7 +183,7 @@ public class NovelHtmlGenerator {
     }
 
     // 生成HTML内容
-    private static String generateHtmlContent(Map<String, Object> novel,
+    private String generateHtmlContent(Map<String, Object> novel,
                                               List<Map<String, Object>> chapters,
                                               List<Map<String, Object>> tags,
                                               String firstChapterPreview, String content) {
@@ -417,29 +462,21 @@ public class NovelHtmlGenerator {
     }
 
     // 保存HTML文件
-    private static void saveHtmlFile(Long novelId, String htmlContent) {
+    private void saveHtmlFile(Long novelId, String htmlContent) {
         try {
             File file = new File("C:\\Users\\30402\\IdeaProjects\\novel\\src\\main\\java\\com\\wtl\\novel\\siteMap\\model\\novelDetail" + novelId + ".html");
-            FileWriter fw = new FileWriter(file);
-            BufferedWriter bw = new BufferedWriter(fw);
-            bw.write(htmlContent);
-            bw.close();
-            fw.close();
-            System.out.println("已生成: " + novelId + ".html");
+            try (FileWriter fw = new FileWriter(file);
+                 BufferedWriter bw = new BufferedWriter(fw)) {
+                bw.write(htmlContent);
+            }
+            log.debug("已生成: {}.html", novelId);
         } catch (IOException e) {
-            e.printStackTrace();
+            log.error("保存HTML文件失败: {}", novelId, e);
         }
     }
 
-    // 生成随机评分
-    private static String getRandomScore() {
-        Random random = new Random();
-        return String.format("%.1f", 8.0 + random.nextDouble() * 2.0);
-    }
-
     // 生成随机字数
-    private static String getRandomWordCount() {
-        Random random = new Random();
-        return String.valueOf(10 + random.nextInt(90));
+    private String getRandomWordCount() {
+        return String.valueOf(10 + RANDOM.nextInt(90));
     }
 }
