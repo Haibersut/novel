@@ -613,7 +613,8 @@ public class TableSqlRepository {
             ROW_FORMAT=DYNAMIC
             AUTO_INCREMENT=1
             """);
-
+        
+        // 这里时间格式不标准
         TABLE_SQL_MAP.put("post_comment", """
             CREATE TABLE `post_comment` (
                 `id` BIGINT(20) NOT NULL AUTO_INCREMENT,

@@ -30,7 +30,8 @@ public class PostComment {
 
     private String replyTo;
 
-    @Column(name = "created_at", updatable = false)
+    @Column(name = "created_at", updatable = false, columnDefinition = "VARCHAR(50)")
+    @Convert(converter = com.wtl.novel.util.TimestampConverter.class)
     private LocalDateTime createdAt;
 
     @PrePersist

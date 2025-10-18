@@ -3,6 +3,7 @@ package com.wtl.novel.Config;
 import com.wtl.novel.util.CustomPasswordEncoder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.core.annotation.Order;
@@ -40,7 +41,7 @@ public class DatabaseInitializer implements CommandLineRunner {
      */
     public DatabaseInitializer(
             @Qualifier("primaryDataSource") DataSource primaryDataSource,
-            @Qualifier("secondaryDataSource") DataSource secondaryDataSource) {
+            @Autowired(required = false) @Qualifier("secondaryDataSource") DataSource secondaryDataSource) {
         this.primaryDataSource = primaryDataSource;
         this.secondaryDataSource = secondaryDataSource;
     }

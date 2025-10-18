@@ -32,7 +32,9 @@ public class ChapterComment {
     @Column(length = 50)
     private String replyTo;
 
-    private LocalDateTime createdAt;   // 对应 longblob
+    @Column(name = "created_at", columnDefinition = "VARCHAR(50)")
+    @Convert(converter = com.wtl.novel.util.TimestampConverter.class)
+    private LocalDateTime createdAt;
 
     @Column(nullable = false)
     private Long userId;

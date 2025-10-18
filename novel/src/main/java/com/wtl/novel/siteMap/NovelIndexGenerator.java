@@ -1,40 +1,65 @@
 package com.wtl.novel.siteMap;
 
-import com.wtl.novel.util.DatabaseConnectionUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.stereotype.Component;
 
+import javax.sql.DataSource;
 import java.sql.*;
 import java.util.*;
 import java.io.*;
 
+@Component
 public class NovelIndexGenerator {
 
-    public static void main(String[] args) {
-        Runtime.getRuntime().addShutdownHook(new Thread(DatabaseConnectionUtil::shutdown));
-        
+    private static final Logger log = LoggerFactory.getLogger(NovelIndexGenerator.class);
+    
+    private final DataSource dataSource;
+
+    public NovelIndexGenerator(@Qualifier("primaryDataSource") DataSource dataSource) {
+        this.dataSource = dataSource;
+    }
+
+    /**
+     * 执行索引页面生成任务
+     */
+    public void execute() {
+        log.info("开始执行小说索引页面生成任务");
         Connection connection = null;
         try {
-            connection = DatabaseConnectionUtil.getPrimaryConnection();
+            connection = dataSource.getConnection();
+            if (connection == null) {
+                log.error("无法获取数据库连接");
+                return;
+            }
 
             List<Map<String, Object>> novels = getNovels(connection);
+            if (novels == null || novels.isEmpty()) {
+                log.warn("没有找到小说数据");
+                return;
+            }
 
             String htmlContent = generateIndexHtmlContent(novels);
 
             saveHtmlFile("index.html", htmlContent);
 
-            System.out.println("索引页面生成完成！");
+            log.info("索引页面生成完成！");
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("索引页面生成任务执行失败", e);
         } finally {
-            try {
-                if (connection != null) connection.close();
-            } catch (SQLException e) {
-                e.printStackTrace();
+            if (connection != null) {
+                try {
+                    connection.close();
+                } catch (SQLException e) {
+                    log.error("关闭数据库连接失败", e);
+                }
             }
         }
     }
 
     // 获取所有小说信息
-    private static List<Map<String, Object>> getNovels(Connection connection) throws SQLException {
+    private List<Map<String, Object>> getNovels(Connection connection) throws SQLException {
         List<Map<String, Object>> result = new ArrayList<>();
         String sql = "SELECT id, title, true_name FROM novel WHERE is_deleted = 0";
 
@@ -54,7 +79,7 @@ public class NovelIndexGenerator {
     }
 
     // 生成索引页面HTML内容
-    private static String generateIndexHtmlContent(List<Map<String, Object>> novels) {
+    private String generateIndexHtmlContent(List<Map<String, Object>> novels) {
         StringBuilder html = new StringBuilder();
 
         // HTML头部
@@ -86,17 +111,16 @@ public class NovelIndexGenerator {
     }
 
     // 保存HTML文件
-    private static void saveHtmlFile(String fileName, String htmlContent) {
+    private void saveHtmlFile(String fileName, String htmlContent) {
         try {
             File file = new File("C:\\Users\\30402\\IdeaProjects\\novel\\src\\main\\java\\com\\wtl\\novel\\siteMap\\model\\" + fileName);
-            FileWriter fw = new FileWriter(file);
-            BufferedWriter bw = new BufferedWriter(fw);
-            bw.write(htmlContent);
-            bw.close();
-            fw.close();
-            System.out.println("已生成: " + fileName);
+            try (FileWriter fw = new FileWriter(file);
+                 BufferedWriter bw = new BufferedWriter(fw)) {
+                bw.write(htmlContent);
+            }
+            log.debug("已生成: {}", fileName);
         } catch (IOException e) {
-            e.printStackTrace();
+            log.error("保存HTML文件失败: {}", fileName, e);
         }
     }
 }

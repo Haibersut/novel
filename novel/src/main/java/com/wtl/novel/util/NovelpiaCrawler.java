@@ -10,7 +10,12 @@ import org.apache.http.util.EntityUtils;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.stereotype.Component;
 
+import javax.sql.DataSource;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -20,7 +25,10 @@ import java.util.concurrent.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+@Component
 public class NovelpiaCrawler {
+
+    private static final Logger log = LoggerFactory.getLogger(NovelpiaCrawler.class);
 
     /* ========== 输出文件 ========== */
     private static final Path OUTPUT_FILE = Path.of("novelpia_result.csv");
@@ -45,45 +53,59 @@ public class NovelpiaCrawler {
     /* ========== 实时写锁 ========== */
     private static final Object WRITE_LOCK = new Object();
 
-    /* ========== 主流程：实时写 ========== */
-    public static void main(String[] args) throws Exception {
-        // 添加关闭钩子,确保程序退出时关闭连接池
-        Runtime.getRuntime().addShutdownHook(new Thread(DatabaseConnectionUtil::shutdown));
-        
+    private final DataSource dataSource;
+
+    public NovelpiaCrawler(@Qualifier("primaryDataSource") DataSource dataSource) {
+        this.dataSource = dataSource;
+    }
+
+    /**
+     * 执行爬取任务
+     */
+    public void execute() {
+        log.info("开始执行Novelpia爬取任务");
         ExecutorService pool = Executors.newFixedThreadPool(THREADS);
 
-        // 保证文件存在
-        if (Files.notExists(OUTPUT_FILE)) {
-            Files.createFile(OUTPUT_FILE);
-        }
-
-        String sql = "SELECT id, true_id FROM novel WHERE is_deleted = 0";
-        try (Connection conn = DatabaseConnectionUtil.getPrimaryConnection();
-             PreparedStatement ps = conn.prepareStatement(sql);
-             ResultSet rs = ps.executeQuery()) {
-
-            while (rs.next()) {
-                long id       = rs.getLong("id");
-                String trueId = rs.getString("true_id");
-                pool.submit(() -> {
-                    try {
-                        Record r = crawlOne(id, trueId);
-                        synchronized (WRITE_LOCK) {
-                            Files.writeString(OUTPUT_FILE,
-                                    r.novelId + "&" + r.like + "&" + r.read + "&" + r.authorId + "&" + r.authorName + System.lineSeparator(),
-                                    StandardOpenOption.APPEND);
-                        }
-                        System.out.println(id);
-                    } catch (Exception e) {
-                        System.err.println("error true_id=" + trueId + " , " + e.getMessage());
-                    }
-                });
+        try {
+            // 保证文件存在
+            if (Files.notExists(OUTPUT_FILE)) {
+                Files.createFile(OUTPUT_FILE);
             }
-        }
 
-        pool.shutdown();
-        pool.awaitTermination(1, TimeUnit.HOURS);
-        System.out.println("全部完成，结果已实时写入 " + OUTPUT_FILE.toAbsolutePath());
+            String sql = "SELECT id, true_id FROM novel WHERE is_deleted = 0";
+            try (Connection conn = dataSource.getConnection();
+                 PreparedStatement ps = conn.prepareStatement(sql);
+                 ResultSet rs = ps.executeQuery()) {
+
+                while (rs.next()) {
+                    long id       = rs.getLong("id");
+                    String trueId = rs.getString("true_id");
+                    pool.submit(() -> {
+                        try {
+                            Record r = crawlOne(id, trueId);
+                            synchronized (WRITE_LOCK) {
+                                Files.writeString(OUTPUT_FILE,
+                                        r.novelId + "&" + r.like + "&" + r.read + "&" + r.authorId + "&" + r.authorName + System.lineSeparator(),
+                                        StandardOpenOption.APPEND);
+                            }
+                            log.debug("完成处理小说: {}", id);
+                        } catch (Exception e) {
+                            log.error("爬取失败 true_id={}", trueId, e);
+                        }
+                    });
+                }
+            }
+
+            pool.shutdown();
+            if (!pool.awaitTermination(1, TimeUnit.HOURS)) {
+                log.warn("爬取任务超时,强制关闭线程池");
+                pool.shutdownNow();
+            }
+            log.info("全部完成，结果已实时写入 {}", OUTPUT_FILE.toAbsolutePath());
+        } catch (Exception e) {
+            log.error("Novelpia爬取任务执行失败", e);
+            pool.shutdownNow();
+        }
     }
 
     /* ========== 抓取 & 解析 ========== */
