@@ -33,19 +33,17 @@
 
 #### 1. 拉取镜像
 
-开发版(dev)镜像更大：
+开发版(dev)镜像更大，目前已经能够拉起定时任务：
 
 ```bash
-docker pull mattgideon/freenovel:v1.0.16-dev
+docker pull mattgideon/freenovel:v1.0.17-dev
 ```
 
-生产版(prod)镜像更小:
+生产版(prod)镜像更小，但没有相应的爬虫或翻译任务:
 
 ```bash
 docker pull mattgideon/freenovel:v1.0.16-prod
 ```
-
-目前没什么区别（
 
 #### 2. 准备配置文件
 
